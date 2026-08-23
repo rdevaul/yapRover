@@ -1,0 +1,45 @@
+name: OpenCASCADE
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: occ-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  occ:
+    name: Python 3.12 / OpenCASCADE
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install OpenGL runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libglu1-mesa libxrender1
+      - name: Create OpenCASCADE environment
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-file: environment.yml
+          init-shell: none
+          cache-environment: true
+          cache-environment-key: occ-${{ runner.os }}-${{ hashFiles('environment.yml', 'pyproject.toml') }}
+          post-cleanup: all
+      - name: Install YapRover
+        shell: micromamba-shell {0}
+        run: python -m pip install -e '.[test]'
+      - name: Verify OpenCASCADE
+        shell: micromamba-shell {0}
+        run: python -c "import yapcad; assert yapcad.has_brep()"
+      - name: Run OCC-enabled tests
+        shell: micromamba-shell {0}
+        env:
+          VISUALTEST: "false"
+        run: pytest -m "not visual and not expensive_geometry"

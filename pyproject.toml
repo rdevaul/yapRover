@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yapRover"
+version = "0.1.0"
+description = "An open, manufacturable rocker-bogie rover designed with yapCAD"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+  { name = "Richard DeVaul", email = "richard.devaul@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "numpy>=1.22",
+  # Temporary reproducible dependency until the post-1.1 yapCAD features
+  # used by the rover are included in a tagged release.
+  "yapCAD @ git+https://github.com/rdevaul/yapCAD.git@51b56feebdaa827a301ffda26648fe05cdcb9e99",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.urls]
+Repository = "https://github.com/rdevaul/yapRover"
+Issues = "https://github.com/rdevaul/yapRover/issues"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "requires_occ: requires pythonocc-core and analytic BREP support",
+  "expensive_geometry: slow exact geometry validation",
+  "visual: interactive or manually inspected output",
+]
