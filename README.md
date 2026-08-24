@@ -6,6 +6,8 @@ It is both a practical rover project and an integration showcase for yapCAD's
 DSL, analytic BREP modeling, annotated assembly datums, mate solving,
 mechanical joint coupling, manufacturing metadata, and `.ycpkg` packages.
 
+![yapRover isometric assembly view](docs/assets/yapRover.jpg)
+
 The design is currently a pre-alpha engineering prototype. Geometry and
 kinematics are under active validation and must not yet be treated as a
 production-ready mechanical design.
