@@ -68,8 +68,12 @@ PART_INSTANCES = (
     ("RIGHT_DIFFERENTIAL_SIDE_GEAR", "right_differential_side_gear"),
     ("FRONT_DIFFERENTIAL_PLANET_GEAR", "front_differential_planet_gear"),
     ("REAR_DIFFERENTIAL_PLANET_GEAR", "rear_differential_planet_gear"),
+    ("DIFFERENTIAL_CRADLE_FINISHED", "differential_cradle"),
+    ("DIFFERENTIAL_CRADLE_FASTENERS", "differential_cradle_fasteners"),
     ("DIFFERENTIAL_CARRIER_BEARINGS", "differential_carrier_bearings"),
     ("DIFFERENTIAL_CROSS_PIN", "differential_cross_pin"),
+    ("DIFFERENTIAL_PLANET_THRUST_WASHERS",
+     "differential_planet_thrust_washers"),
 )
 WHEELS = tuple(name for _, name in PART_INSTANCES if name.endswith("_wheel"))
 PRINTED_STRUCTURE = (
@@ -124,10 +128,17 @@ HARDWARE_MATES = (
      "chassis_pivot", "axis"),
     ("right_side_gear_mount", "right_rocker", "right_differential_side_gear",
      "chassis_pivot", "axis"),
-    ("differential_bearing_mount", "chassis",
+    ("differential_cradle_mount", "chassis", "differential_cradle",
+     "differential_mount", "mount"),
+    ("differential_fastener_mount", "differential_cradle",
+     "differential_cradle_fasteners", "mount", "mount"),
+    ("differential_bearing_mount", "differential_cradle",
      "differential_carrier_bearings", "differential_axis", "axis"),
-    ("differential_cross_pin_mount", "chassis", "differential_cross_pin",
+    ("differential_cross_pin_mount", "differential_cradle",
+     "differential_cross_pin",
      "planet_axis", "axis"),
+    ("differential_thrust_washer_mount", "differential_cradle",
+     "differential_planet_thrust_washers", "planet_axis", "axis"),
 )
 
 
@@ -239,8 +250,8 @@ def test_detailed_geometry_retains_proven_datum_graph(detailed_solids):
     result = assembly.solve("chassis", {"left_rocker_pivot": math.radians(12.0)})
 
     assert result.success, result.errors
-    assert len(assembly.parts) == 37
-    assert len(assembly.mates) == 36
+    assert len(assembly.parts) == 40
+    assert len(assembly.mates) == 39
     assert assembly._joint_values["right_rocker_pivot"] == pytest.approx(
         math.radians(-12.0)
     )
@@ -283,8 +294,11 @@ def test_physical_differential_tracks_the_affine_joint_contract(detailed_solids)
         "right_differential_side_gear",
         "front_differential_planet_gear",
         "rear_differential_planet_gear",
+        "differential_cradle",
+        "differential_cradle_fasteners",
         "differential_carrier_bearings",
         "differential_cross_pin",
+        "differential_planet_thrust_washers",
     } <= set(assembly.parts)
     chassis = assembly.parts["chassis"]
     np.testing.assert_allclose(
@@ -330,7 +344,46 @@ def test_planet_gears_use_plain_clearance_bores_on_fixed_cross_pin(
         assert mate.part_a == "differential_cross_pin"
         gear = detailed_solids[f"{position.upper()}_DIFFERENTIAL_PLANET_GEAR"]
         extent = _extent(gear)
-        assert np.all(extent <= [21.0, 41.0, 41.0])
+        assert np.all(extent <= [27.0, 41.0, 41.0])
+
+
+def test_differential_is_a_removable_retained_cartridge(detailed_solids):
+    assembly = make_detailed_assembly(detailed_solids)
+    mates = {mate.name: mate for mate in assembly.mates}
+
+    cradle_mount = mates["differential_cradle_mount"]
+    assert cradle_mount.part_a == "chassis"
+    assert cradle_mount.part_b == "differential_cradle"
+    for name in (
+        "differential_fastener_mount",
+        "differential_bearing_mount",
+        "differential_cross_pin_mount",
+        "differential_thrust_washer_mount",
+    ):
+        assert mates[name].part_a == "differential_cradle"
+
+    pin_extent = _extent(detailed_solids["DIFFERENTIAL_CROSS_PIN"])
+    assert pin_extent[0] == pytest.approx(82.0, abs=0.02)
+    washer_extent = _extent(
+        detailed_solids["DIFFERENTIAL_PLANET_THRUST_WASHERS"]
+    )
+    np.testing.assert_allclose(washer_extent, [55.4, 16.0, 16.0], atol=0.15)
+
+
+@pytest.mark.expensive_geometry
+def test_planet_thrust_stack_has_controlled_axial_float(detailed_solids):
+    assembly = make_detailed_assembly(detailed_solids)
+    assert assembly.solve("chassis").success
+    positioned = assembly.positioned_parts()
+    washers = positioned["differential_planet_thrust_washers"]
+    for position in ("front", "rear"):
+        gear_name = f"{position}_differential_planet_gear"
+        measurement = measure_brep_pair(
+            gear_name, positioned[gear_name],
+            "differential_planet_thrust_washers", washers,
+        )
+        assert measurement.intersection_volume <= 1e-7
+        assert measurement.clearance == pytest.approx(0.2, abs=0.03)
 
 
 @pytest.mark.expensive_geometry
@@ -449,8 +502,8 @@ def test_full_dsl_build_creates_valid_v02_product_package(tmp_path, source):
     assert result.success, result.error_message
     manifest = result.manifest
     assert manifest.data["schema"] == "ycpkg-spec-v0.2"
-    assert len(manifest.data["components"]) == 37
-    assert len(manifest.data["instances"]) == 37
+    assert len(manifest.data["components"]) == 40
+    assert len(manifest.data["instances"]) == 40
     assert manifest.data["geometry"]["primary"]["schema"] == (
         "yapcad-geometry-json-v0.2"
     )
