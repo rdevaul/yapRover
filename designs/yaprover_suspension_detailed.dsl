@@ -390,45 +390,55 @@ command RIGHT_BOGIE_PIVOT_SHAFT() -> solid:
 
 
 # ---------------------------------------------------------------------------
-# Compact straight-bevel differential. The tooth form is a printable,
-# replaceable 24-tooth approximation around an analytic conical gear body;
-# the shaft and carrier datums preserve a future purchased-metal gear swap.
+# Compact spherical-involute straight-bevel differential. All four gears share
+# one pitch apex at the chassis origin. The side gears are keyed to the rocker
+# shafts; each planet has a plain running bore and its own revolute joint on the
+# fixed cross-pin. The 0.25 mm backlash is the printable PET-G starting value.
 
 command MITER_GEAR_BLANK() -> solid:
-    let body: solid = cone(19.5, 13.5, 8.0)
-    let tooth: solid = translate(box(4.0, 2.4, 4.0), 18.0, 0.0, 1.5)
-    let teeth: list<solid> = [
-        rotate(tooth, 0.0, 0.0, i * 15.0) for i in range(24)
-    ]
-    emit union_all([body] + teeth)
+    emit miter_gear(
+        teeth=24,
+        outer_module_mm=1.5,
+        face_width_mm=8.0,
+        pressure_angle_deg=20.0,
+        backlash_mm=0.25,
+        bore_diameter_mm=8.4,
+        generation_type="spherical_involute"
+    )
 
 
 command MITER_SIDE_GEAR_Z() -> solid:
     let blank: solid = MITER_GEAR_BLANK()
-    let bore: solid = translate(cylinder(4.2, 10.0), 0.0, 0.0, -1.0)
-    let keyway: solid = translate(box(2.2, 2.2, 10.0),
-                                  0.0, 3.8, 4.0)
-    emit difference(blank, bore, keyway)
+    # After the -90 degree X rotation used by the side-gear wrappers, local
+    # -Y becomes chassis +Z.  Center the 2.2 mm keyway there so it clears the
+    # 2.0 mm parallel key on the rocker shaft by 0.1 mm per side.  The bevel
+    # gear body occupies local Z=12.3..18.0 mm, so the cutter spans that full
+    # axial interval rather than stopping short of the gear.
+    let keyway: solid = translate(box(2.2, 2.2, 12.0),
+                                  0.0, -3.8, 15.0)
+    emit difference(blank, keyway)
 
 
 command MITER_PLANET_GEAR_Z() -> solid:
-    let bore: solid = translate(cylinder(4.2, 10.0), 0.0, 0.0, -1.0)
-    emit difference(MITER_GEAR_BLANK(), bore)
+    emit MITER_GEAR_BLANK()
 
 
 command LEFT_DIFFERENTIAL_SIDE_GEAR_GEOMETRY() -> solid:
-    # With the child datum solved to y=+155, this gear occupies y=12..20.
-    let on_y: solid = rotate(MITER_SIDE_GEAR_Z(), 90.0, 0.0, 0.0)
-    emit translate(on_y, 0.0, -135.0, 0.0)
+    # The part datum is solved to y=+155. Translate the pitch apex back to the
+    # chassis origin and point the gear body outward along +Y.
+    let on_y: solid = rotate(MITER_SIDE_GEAR_Z(), -90.0, 0.0, 0.0)
+    emit translate(on_y, 0.0, -155.0, 0.0)
 
 
-command PLANET_GEAR_PAIR_GEOMETRY() -> solid:
-    let positive: solid = translate(
-        rotate(MITER_PLANET_GEAR_Z(), 0.0, -90.0, 0.0),
-        20.0, 0.0, 0.0
-    )
-    let negative: solid = mirror(positive, vector(1.0, 0.0, 0.0))
-    emit compound(positive, negative)
+command FRONT_DIFFERENTIAL_PLANET_GEAR_GEOMETRY() -> solid:
+    # Core pair convention: the +X mate is phased by half a tooth pitch.
+    let on_x: solid = rotate(MITER_PLANET_GEAR_Z(), 0.0, 90.0, 0.0)
+    emit rotate(on_x, 7.5, 0.0, 0.0)
+
+
+command REAR_DIFFERENTIAL_PLANET_GEAR_GEOMETRY() -> solid:
+    emit mirror(FRONT_DIFFERENTIAL_PLANET_GEAR_GEOMETRY(),
+                vector(1.0, 0.0, 0.0))
 
 
 @meta(material="PETG replaceable gear", assembly.datums=[
@@ -452,8 +462,16 @@ command RIGHT_DIFFERENTIAL_SIDE_GEAR() -> solid:
     {"id": "axis", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0]}
 ])
-command DIFFERENTIAL_PLANET_PAIR() -> solid:
-    emit PLANET_GEAR_PAIR_GEOMETRY()
+command FRONT_DIFFERENTIAL_PLANET_GEAR() -> solid:
+    emit FRONT_DIFFERENTIAL_PLANET_GEAR_GEOMETRY()
+
+
+@meta(material="PETG replaceable gear", assembly.datums=[
+    {"id": "axis", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0]}
+])
+command REAR_DIFFERENTIAL_PLANET_GEAR() -> solid:
+    emit REAR_DIFFERENTIAL_PLANET_GEAR_GEOMETRY()
 
 
 @meta(material="608-2RS steel / rubber", assembly.datums=[
@@ -624,7 +642,9 @@ command DIFFERENTIAL_CARTRIDGE_PREVIEW() -> solid:
         0.0, -155.0, 0.0
     )
     emit compound(DIFFERENTIAL_CRADLE(), DIFFERENTIAL_CARRIER_BEARINGS(),
-                  DIFFERENTIAL_CROSS_PIN(), PLANET_GEAR_PAIR_GEOMETRY(),
+                  DIFFERENTIAL_CROSS_PIN(),
+                  FRONT_DIFFERENTIAL_PLANET_GEAR_GEOMETRY(),
+                  REAR_DIFFERENTIAL_PLANET_GEAR_GEOMETRY(),
                   left_gear, right_gear, left_shaft, right_shaft)
 
 
@@ -722,7 +742,10 @@ command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
              "left_differential_side_gear")
     add_part(rover, RIGHT_DIFFERENTIAL_SIDE_GEAR(),
              "right_differential_side_gear")
-    add_part(rover, DIFFERENTIAL_PLANET_PAIR(), "differential_planet_pair")
+    add_part(rover, FRONT_DIFFERENTIAL_PLANET_GEAR(),
+             "front_differential_planet_gear")
+    add_part(rover, REAR_DIFFERENTIAL_PLANET_GEAR(),
+             "rear_differential_planet_gear")
     add_part(rover, DIFFERENTIAL_CARRIER_BEARINGS(),
              "differential_carrier_bearings")
     add_part(rover, DIFFERENTIAL_CROSS_PIN(), "differential_cross_pin")
@@ -807,8 +830,12 @@ command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
                    "differential_carrier_bearings", "axis")
     add_named_mate(rover, "differential_cross_pin_mount", "rigid",
                    "chassis", "planet_axis", "differential_cross_pin", "axis")
-    add_named_mate(rover, "planet_pair_pivot", "revolute",
-                   "chassis", "planet_axis", "differential_planet_pair", "axis")
+    add_named_mate(rover, "front_planet_pivot", "revolute",
+                   "differential_cross_pin", "axis",
+                   "front_differential_planet_gear", "axis")
+    add_named_mate(rover, "rear_planet_pivot", "revolute",
+                   "differential_cross_pin", "axis",
+                   "rear_differential_planet_gear", "axis")
 
     set_mate_limits(rover, "left_rocker_pivot", radians(-18.0), radians(18.0))
     set_mate_limits(rover, "right_rocker_pivot", radians(-18.0), radians(18.0))
@@ -816,8 +843,12 @@ command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
     set_mate_limits(rover, "right_bogie_pivot", radians(-35.0), radians(38.0))
     add_joint_coupling(rover, "rocker_differential", "right_rocker_pivot",
                        ["left_rocker_pivot"], [-1.0], 0.0)
-    add_joint_coupling(rover, "planet_differential", "planet_pair_pivot",
+    add_joint_coupling(rover, "front_planet_differential",
+                       "front_planet_pivot",
                        ["left_rocker_pivot"], [-1.0], 0.0)
+    add_joint_coupling(rover, "rear_planet_differential",
+                       "rear_planet_pivot",
+                       ["left_rocker_pivot"], [1.0], 0.0)
     solve_assembly(rover, "chassis")
     set_joint_position(rover, "left_rocker_pivot", rocker_angle)
     emit assembly_compound(rover)

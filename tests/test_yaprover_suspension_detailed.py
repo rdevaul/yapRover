@@ -18,6 +18,7 @@ from yapcad.io.step import write_step_analytic
 from yaprover.kinematics.clearance import (
     audit_positioned_breps,
     canonical_pair,
+    measure_brep_pair,
     measure_brep_volume,
 )
 
@@ -63,13 +64,18 @@ PART_INSTANCES = (
     ("RIGHT_BOGIE_PIVOT_SHAFT", "right_bogie_pivot_shaft"),
     ("LEFT_DIFFERENTIAL_SIDE_GEAR", "left_differential_side_gear"),
     ("RIGHT_DIFFERENTIAL_SIDE_GEAR", "right_differential_side_gear"),
-    ("DIFFERENTIAL_PLANET_PAIR", "differential_planet_pair"),
+    ("FRONT_DIFFERENTIAL_PLANET_GEAR", "front_differential_planet_gear"),
+    ("REAR_DIFFERENTIAL_PLANET_GEAR", "rear_differential_planet_gear"),
     ("DIFFERENTIAL_CARRIER_BEARINGS", "differential_carrier_bearings"),
     ("DIFFERENTIAL_CROSS_PIN", "differential_cross_pin"),
 )
 WHEELS = tuple(name for _, name in PART_INSTANCES if name.endswith("_wheel"))
 PRINTED_STRUCTURE = (
     "chassis", "left_rocker", "right_rocker", "left_bogie", "right_bogie",
+)
+DIFFERENTIAL_MESHES = tuple(
+    (f"{position}_differential_planet_gear", f"{side}_differential_side_gear")
+    for position in ("front", "rear") for side in ("left", "right")
 )
 HARDWARE_MATES = (
     ("left_front_shaft_mount", "left_rocker", "left_front_shaft",
@@ -150,7 +156,7 @@ def detailed_solids(source):
     }
 
 
-def make_detailed_assembly(detailed_solids):
+def make_detailed_assembly(detailed_solids, *, couple_planets=True):
     asm = call_builtin("assembly", [string_val("yaprover_suspension_detailed")])
     for command, instance in PART_INSTANCES:
         call_builtin("add_part", [
@@ -164,11 +170,14 @@ def make_detailed_assembly(detailed_solids):
             string_val(parent), string_val(parent_datum),
             string_val(child), string_val(child_datum),
         ])
-    call_builtin("add_named_mate", [
-        asm, string_val("planet_pair_pivot"), string_val("revolute"),
-        string_val("chassis"), string_val("planet_axis"),
-        string_val("differential_planet_pair"), string_val("axis"),
-    ])
+    for position in ("front", "rear"):
+        call_builtin("add_named_mate", [
+            asm, string_val(f"{position}_planet_pivot"),
+            string_val("revolute"), string_val("differential_cross_pin"),
+            string_val("axis"),
+            string_val(f"{position}_differential_planet_gear"),
+            string_val("axis"),
+        ])
     call_builtin("add_joint_coupling", [
         asm,
         string_val("rocker_differential"),
@@ -177,14 +186,16 @@ def make_detailed_assembly(detailed_solids):
         list_val([float_val(-1.0)], FLOAT),
         float_val(0.0),
     ])
-    call_builtin("add_joint_coupling", [
-        asm,
-        string_val("planet_differential"),
-        string_val("planet_pair_pivot"),
-        list_val([string_val("left_rocker_pivot")], STRING),
-        list_val([float_val(-1.0)], FLOAT),
-        float_val(0.0),
-    ])
+    if couple_planets:
+        for position, coefficient in (("front", -1.0), ("rear", 1.0)):
+            call_builtin("add_joint_coupling", [
+                asm,
+                string_val(f"{position}_planet_differential"),
+                string_val(f"{position}_planet_pivot"),
+                list_val([string_val("left_rocker_pivot")], STRING),
+                list_val([float_val(coefficient)], FLOAT),
+                float_val(0.0),
+            ])
     for name, minimum, maximum in (
         ("left_rocker_pivot", -18.0, 18.0),
         ("right_rocker_pivot", -18.0, 18.0),
@@ -226,13 +237,16 @@ def test_detailed_geometry_retains_proven_datum_graph(detailed_solids):
     result = assembly.solve("chassis", {"left_rocker_pivot": math.radians(12.0)})
 
     assert result.success, result.errors
-    assert len(assembly.parts) == 36
-    assert len(assembly.mates) == 35
+    assert len(assembly.parts) == 37
+    assert len(assembly.mates) == 36
     assert assembly._joint_values["right_rocker_pivot"] == pytest.approx(
         math.radians(-12.0)
     )
-    assert assembly._joint_values["planet_pair_pivot"] == pytest.approx(
+    assert assembly._joint_values["front_planet_pivot"] == pytest.approx(
         math.radians(-12.0)
+    )
+    assert assembly._joint_values["rear_planet_pivot"] == pytest.approx(
+        math.radians(12.0)
     )
     assert max(result.residuals.values()) <= 1e-8
     assert all(has_brep_data(solid) for solid in assembly.positioned_parts().values())
@@ -260,11 +274,13 @@ def test_physical_differential_tracks_the_affine_joint_contract(detailed_solids)
 
     assert result.success, result.errors
     assert assembly._joint_values["right_rocker_pivot"] == pytest.approx(-angle)
-    assert assembly._joint_values["planet_pair_pivot"] == pytest.approx(-angle)
+    assert assembly._joint_values["front_planet_pivot"] == pytest.approx(-angle)
+    assert assembly._joint_values["rear_planet_pivot"] == pytest.approx(angle)
     assert {
         "left_differential_side_gear",
         "right_differential_side_gear",
-        "differential_planet_pair",
+        "front_differential_planet_gear",
+        "rear_differential_planet_gear",
         "differential_carrier_bearings",
         "differential_cross_pin",
     } <= set(assembly.parts)
@@ -277,6 +293,100 @@ def test_physical_differential_tracks_the_affine_joint_contract(detailed_solids)
     )
     side_extent = _extent(detailed_solids["LEFT_DIFFERENTIAL_SIDE_GEAR"])
     assert np.all(side_extent <= [41.0, 9.0, 41.0])
+
+
+def test_planet_gears_have_independent_running_joints(detailed_solids):
+    assembly = make_detailed_assembly(detailed_solids, couple_planets=False)
+    zero = assembly.solve("chassis")
+    assert zero.success, zero.errors
+    front_at_zero = zero.transforms["front_differential_planet_gear"].copy()
+    rear_at_zero = zero.transforms["rear_differential_planet_gear"].copy()
+
+    angle = math.radians(17.0)
+    moved = assembly.solve("chassis", {"front_planet_pivot": angle})
+    assert moved.success, moved.errors
+    assert not np.allclose(
+        moved.transforms["front_differential_planet_gear"], front_at_zero,
+    )
+    np.testing.assert_allclose(
+        moved.transforms["rear_differential_planet_gear"], rear_at_zero,
+        atol=1e-10,
+    )
+    assert assembly._joint_values["front_planet_pivot"] == pytest.approx(angle)
+    assert assembly._joint_values["rear_planet_pivot"] == pytest.approx(0.0)
+
+
+def test_planet_gears_use_plain_clearance_bores_on_fixed_cross_pin(
+    detailed_solids,
+):
+    assembly = make_detailed_assembly(detailed_solids)
+    mates = {mate.name: mate for mate in assembly.mates}
+    assert mates["differential_cross_pin_mount"].mate_type.value == "rigid"
+    for position in ("front", "rear"):
+        mate = mates[f"{position}_planet_pivot"]
+        assert mate.mate_type.value == "revolute"
+        assert mate.part_a == "differential_cross_pin"
+        gear = detailed_solids[f"{position.upper()}_DIFFERENTIAL_PLANET_GEAR"]
+        extent = _extent(gear)
+        assert np.all(extent <= [21.0, 41.0, 41.0])
+
+
+@pytest.mark.expensive_geometry
+def test_independent_planets_have_running_clearance_on_cross_pin(detailed_solids):
+    assembly = make_detailed_assembly(detailed_solids)
+    result = assembly.solve("chassis")
+    assert result.success, result.errors
+    positioned = assembly.positioned_parts()
+    for position in ("front", "rear"):
+        measurement = measure_brep_pair(
+            "differential_cross_pin", positioned["differential_cross_pin"],
+            f"{position}_differential_planet_gear",
+            positioned[f"{position}_differential_planet_gear"],
+        )
+        assert measurement.intersection_volume <= 1e-7
+        assert measurement.clearance == pytest.approx(0.25, abs=0.02)
+
+
+@pytest.mark.expensive_geometry
+def test_side_gears_clear_their_parallel_keys_and_rocker_shafts(
+    detailed_solids,
+):
+    assembly = make_detailed_assembly(detailed_solids)
+    result = assembly.solve("chassis")
+    assert result.success, result.errors
+    positioned = assembly.positioned_parts()
+    for side in ("left", "right"):
+        measurement = measure_brep_pair(
+            f"{side}_rocker_pivot_shaft",
+            positioned[f"{side}_rocker_pivot_shaft"],
+            f"{side}_differential_side_gear",
+            positioned[f"{side}_differential_side_gear"],
+        )
+        assert measurement.intersection_volume <= 1e-7
+
+
+@pytest.mark.expensive_geometry
+def test_all_four_miter_meshes_remain_phased_through_one_tooth_pitch(
+    detailed_solids,
+):
+    assembly = make_detailed_assembly(detailed_solids)
+    for angle_deg in (0.0, 3.75, 7.5, 11.25, 15.0):
+        result = assembly.solve(
+            "chassis", {"left_rocker_pivot": math.radians(angle_deg)},
+        )
+        assert result.success, result.errors
+        positioned = assembly.positioned_parts()
+        for planet, side in DIFFERENTIAL_MESHES:
+            measurement = measure_brep_pair(
+                planet, positioned[planet], side, positioned[side],
+                intended_contact=True,
+            )
+            assert measurement.intersection_volume <= 1e-6, (
+                angle_deg, planet, side, measurement,
+            )
+            assert measurement.clearance <= 0.30, (
+                angle_deg, planet, side, measurement,
+            )
 
 
 def test_level_pose_has_five_mm_wheel_to_structure_clearance(detailed_solids):

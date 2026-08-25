@@ -50,6 +50,11 @@ upstream commit containing the assembly, coupling, bevel-gear, and packaging
 features required by this design. It will be replaced by a released version
 constraint once that release is available.
 
+The current [differential cartridge design](docs/differential.md) uses four
+spherical-involute miter gears. Its two planet gears are separate parts with
+independent running joints on a fixed cross-pin; exact BREP tests verify bore
+clearance and all four meshes through a complete tooth pitch.
+
 ## License
 
 YapRover is licensed under the MIT License. See [LICENSE](LICENSE).
