@@ -45,6 +45,40 @@ Run the slower exact-geometry tests explicitly:
 pytest -m "expensive_geometry and not visual"
 ```
 
+## Generate the rover package
+
+Build the level-pose rover as a validated assembly-aware `.ycpkg` from the
+repository root:
+
+```bash
+python tools/build_ycpkg.py
+```
+
+The output is the directory `build/yaprover-0.1.0.ycpkg/`. A `.ycpkg` is a
+directory package, not a single STEP file. It contains the `ycpkg-spec-v0.2`
+manifest, solved instances and mate/coupling graph, generated BOM, original DSL
+source, and `yapcad-geometry-json-v0.2` geometry with embedded analytic BREP.
+Expect the current package to occupy roughly 190 MB.
+
+Select another version or preview pose, or replace an existing build, with:
+
+```bash
+python tools/build_ycpkg.py --version 0.1.1 \
+  --rocker-angle-deg 12 --force
+```
+
+Use `--output path/to/name.ycpkg` to choose another destination. Package
+generation requires the OpenCASCADE-enabled `yaprover` conda environment and
+the editable installation described above. The builder runs strict package
+validation before reporting success.
+
+The current generated BOM is a geometry-oriented preview: component
+disposition and procurement annotations have not yet been added to the rover
+DSL, so modeled bearings and shaft assemblies are presently listed as unique
+`make` components. Do not use this BOM for purchasing yet. Component-local
+manufacturing STEP/STL exports will be enabled after those COTS and fabricated
+component definitions are normalized.
+
 Until yapCAD publishes the next release, `pyproject.toml` pins the exact
 upstream commit containing the assembly, coupling, bevel-gear, and packaging
 features required by this design. It will be replaced by a released version
