@@ -54,15 +54,19 @@ def _intended_wheel_contacts(part_names):
 
 
 def _intended_differential_contacts(part_names):
-    """Allow only the two explicitly meshing bevel-gear pairs."""
+    """Allow only the four explicitly meshing bevel-gear pairs."""
     names = set(part_names)
     pairs = {
-        canonical_pair("differential_planet_pair", side)
+        canonical_pair(planet, side)
+        for planet in (
+            "front_differential_planet_gear",
+            "rear_differential_planet_gear",
+        )
         for side in (
             "left_differential_side_gear",
             "right_differential_side_gear",
         )
-        if "differential_planet_pair" in names and side in names
+        if planet in names and side in names
     }
     return pairs
 
@@ -116,9 +120,10 @@ def test_contact_allowlist_is_exact_and_never_allows_wheel_to_link():
     assert canonical_pair("left_front_wheel", "unrelated_hub") not in allowed
 
 
-def test_differential_allowlist_contains_only_the_two_tooth_meshes():
+def test_differential_allowlist_contains_only_the_four_tooth_meshes():
     names = {
-        "differential_planet_pair",
+        "front_differential_planet_gear",
+        "rear_differential_planet_gear",
         "left_differential_side_gear",
         "right_differential_side_gear",
         "differential_cross_pin",
@@ -128,8 +133,10 @@ def test_differential_allowlist_contains_only_the_two_tooth_meshes():
     allowed = _intended_differential_contacts(names)
 
     assert allowed == canonical_pairs({
-        ("differential_planet_pair", "left_differential_side_gear"),
-        ("differential_planet_pair", "right_differential_side_gear"),
+        ("front_differential_planet_gear", "left_differential_side_gear"),
+        ("front_differential_planet_gear", "right_differential_side_gear"),
+        ("rear_differential_planet_gear", "left_differential_side_gear"),
+        ("rear_differential_planet_gear", "right_differential_side_gear"),
     })
     assert canonical_pair(
         "differential_cross_pin", "left_rocker_pivot_shaft"
@@ -209,8 +216,10 @@ def test_joint_range_sweep_uses_at_most_two_degree_steps(occ_rover):
                 ("chassis", "right_bogie"),
                 ("left_rocker", "left_bogie"),
                 ("right_rocker", "right_bogie"),
-                ("differential_planet_pair", "left_differential_side_gear"),
-                ("differential_planet_pair", "right_differential_side_gear"),
+                ("front_differential_planet_gear", "left_differential_side_gear"),
+                ("front_differential_planet_gear", "right_differential_side_gear"),
+                ("rear_differential_planet_gear", "left_differential_side_gear"),
+                ("rear_differential_planet_gear", "right_differential_side_gear"),
                 ("differential_cross_pin", "left_rocker_pivot_shaft"),
                 ("differential_cross_pin", "right_rocker_pivot_shaft"),
                 ("differential_carrier_bearings", "left_rocker_pivot_shaft"),
