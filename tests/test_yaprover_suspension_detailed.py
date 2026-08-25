@@ -10,11 +10,13 @@ import pytest
 
 from yapcad.brep import has_brep_data, occ_available
 from yapcad.dsl import compile_and_run
+from yapcad.dsl.packaging import package_from_dsl
 from yapcad.dsl.runtime.builtins import call_builtin
 from yapcad.dsl.runtime.values import float_val, list_val, solid_val, string_val
 from yapcad.dsl.types import FLOAT, STRING
 from yapcad.geom3d import issolid, solidbbox
 from yapcad.io.step import write_step_analytic
+from yapcad.package import validate_package
 from yaprover.kinematics.clearance import (
     audit_positioned_breps,
     canonical_pair,
@@ -431,3 +433,30 @@ def test_full_dsl_build_exports_strict_analytic_step(tmp_path, source):
         geometry, str(output), fallback_to_faceted=False,
     ) is True
     assert output.stat().st_size > 0
+
+
+@pytest.mark.expensive_geometry
+def test_full_dsl_build_creates_valid_v02_product_package(tmp_path, source):
+    result = package_from_dsl(
+        source,
+        "BUILD_DETAILED_SUSPENSION",
+        {"rocker_angle": 0.0},
+        tmp_path / "yaprover.ycpkg",
+        name="yaprover",
+        version="0.1.0",
+    )
+
+    assert result.success, result.error_message
+    manifest = result.manifest
+    assert manifest.data["schema"] == "ycpkg-spec-v0.2"
+    assert len(manifest.data["components"]) == 37
+    assert len(manifest.data["instances"]) == 37
+    assert manifest.data["geometry"]["primary"]["schema"] == (
+        "yapcad-geometry-json-v0.2"
+    )
+    assert all(
+        component["geometry"]["schema"] == "yapcad-geometry-json-v0.2"
+        for component in manifest.data["components"]
+    )
+    ok, messages = validate_package(manifest.root, strict=True)
+    assert ok, messages
