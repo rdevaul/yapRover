@@ -12,6 +12,16 @@ The design is currently a pre-alpha engineering prototype. Geometry and
 kinematics are under active validation and must not yet be treated as a
 production-ready mechanical design.
 
+## How rocker-bogie works
+
+For a quick visual introduction, see this short
+[rocker-bogie suspension and drive explanation](https://www.youtube.com/shorts/hO8DbfE7hJw).
+The [rocker-bogie overview on Wikipedia](https://en.wikipedia.org/wiki/Rocker-bogie)
+provides additional history, terminology, and diagrams. YapRover uses the same
+six-wheel rocker-and-bogie topology and a differential linkage that couples
+the left and right rockers; its optional wheel-drive system is still a future
+design study rather than part of the passive first prototype.
+
 ## Repository layout
 
 - `designs/` contains the yapCAD DSL source of record.
@@ -72,12 +82,11 @@ generation requires the OpenCASCADE-enabled `yaprover` conda environment and
 the editable installation described above. The builder runs strict package
 validation before reporting success.
 
-The current generated BOM is a geometry-oriented preview: component
-disposition and procurement annotations have not yet been added to the rover
-DSL, so modeled bearings and shaft assemblies are presently listed as unique
-`make` components. Do not use this BOM for purchasing yet. Component-local
-manufacturing STEP/STL exports will be enabled after those COTS and fabricated
-component definitions are normalized.
+The generated BOM now distinguishes printed `make` parts, purchased `buy`
+hardware, and `raw_stock` cut-to-length shafts, keys, and spacer tube. These
+classes also drive the viewer's fabricated, COTS, and raw-stock visibility and
+rendering styles. Procurement details are still preliminary, so do not use the
+BOM for purchasing without checking the source specifications.
 
 Until yapCAD publishes the next release, `pyproject.toml` pins the exact
 upstream commit containing the assembly, coupling, bevel-gear, and packaging
@@ -90,6 +99,15 @@ independent running joints on a retained shoulder pin. Integral thrust hubs
 and low-friction washers control axial float without clamping the planets, and
 the four-fastener cradle is removable from the chassis. Exact BREP tests verify
 pin and thrust clearances plus all four meshes through a complete tooth pitch.
+
+The [suspension geometry and ROM notes](docs/suspension.md) document the
+single-band split rocker, adjacent bogie layer, recessed axle retention, and
+the broad-phase plus exact-BREP range-of-motion acceptance test.
+
+An optional [powered-wheel candidate study](docs/drive_candidates.md) defines
+a motor envelope, split-clamp mount, coupler, rotating axle, and suspension-side
+dual-bearing cartridge. It is deliberately excluded from the passive first-build
+package until prototype mass and traction measurements justify a motor choice.
 
 ## License
 
