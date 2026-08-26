@@ -420,7 +420,13 @@ command MITER_SIDE_GEAR_Z() -> solid:
 
 
 command MITER_PLANET_GEAR_Z() -> solid:
-    emit MITER_GEAR_BLANK()
+    # Extend the back face into a Ø16 mm thrust hub.  The hub ends 1.5 mm
+    # inboard of the carrier tower, leaving room for a 1 mm low-friction
+    # washer and 0.5 mm total axial running clearance.
+    let blank: solid = MITER_GEAR_BLANK()
+    let hub: solid = translate(cylinder(8.0, 9.0), 0.0, 0.0, 17.5)
+    let bore: solid = translate(cylinder(4.2, 15.0), 0.0, 0.0, 12.0)
+    emit difference(union(blank, hub), bore)
 
 
 command LEFT_DIFFERENTIAL_SIDE_GEAR_GEOMETRY() -> solid:
@@ -482,13 +488,32 @@ command DIFFERENTIAL_CARRIER_BEARINGS() -> solid:
     emit compound(BEARING_608(32.0), BEARING_608(-32.0))
 
 
-@meta(material="8 mm steel rod", assembly.datums=[
+@meta(material="8 mm shoulder screw and locknut", assembly.datums=[
     {"id": "axis", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0]}
 ])
 command DIFFERENTIAL_CROSS_PIN() -> solid:
+    # A smooth Ø7.9 x 72 mm shoulder carries the planet gears.  The modeled
+    # head and locknut bear only on the outside faces of the carrier towers,
+    # so tightening the pin cannot clamp either rotating planet.
     let raw: solid = translate(cylinder(3.95, 72.0), 0.0, 0.0, -36.0)
-    emit rotate(raw, 0.0, 90.0, 0.0)
+    let head: solid = translate(cylinder(6.5, 5.0), 0.0, 0.0, -41.0)
+    let thread: solid = translate(cylinder(3.0, 5.0), 0.0, 0.0, 36.0)
+    let locknut: solid = translate(cylinder(5.5, 5.0), 0.0, 0.0, 36.0)
+    emit rotate(compound(raw, head, thread, locknut), 0.0, 90.0, 0.0)
+
+
+@meta(material="M8 low-friction thrust washer", assembly.datums=[
+    {"id": "axis", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0]}
+])
+command DIFFERENTIAL_PLANET_THRUST_WASHERS() -> solid:
+    let disk: solid = difference(cylinder(8.0, 1.0),
+                                 cylinder(4.15, 1.0))
+    let centered: solid = translate(disk, 0.0, 0.0, -0.5)
+    let on_x: solid = rotate(centered, 0.0, 90.0, 0.0)
+    emit compound(translate(on_x, 27.2, 0.0, 0.0),
+                  translate(on_x, -27.2, 0.0, 0.0))
 
 
 command DIFFERENTIAL_BEARING_PLATE(side: int) -> solid:
@@ -522,11 +547,54 @@ command DIFFERENTIAL_CRADLE() -> solid:
                                             -32.0, 0.0, -15.0), 2.0)
     let right_rail: solid = fillet(translate(box(12.0, 80.0, 8.0),
                                              32.0, 0.0, -15.0), 2.0)
-    emit union(left_rail, right_rail,
-               DIFFERENTIAL_BEARING_PLATE(1),
-               DIFFERENTIAL_BEARING_PLATE(-1),
-               DIFFERENTIAL_PIN_TOWER(1),
-               DIFFERENTIAL_PIN_TOWER(-1))
+    # Four outboard feet bridge from the rails onto intact chassis floor
+    # outside the central cartridge opening.
+    let foot: solid = fillet(translate(box(12.0, 16.0, 8.0),
+                                       44.0, 28.0, -15.0), 2.0)
+    let frame: solid = union(left_rail, right_rail,
+                             foot,
+                             mirror(foot, vector(0.0, 1.0, 0.0)),
+                             mirror(foot, vector(1.0, 0.0, 0.0)),
+                             mirror(mirror(foot, vector(1.0, 0.0, 0.0)),
+                                    vector(0.0, 1.0, 0.0)),
+                             DIFFERENTIAL_BEARING_PLATE(1),
+                             DIFFERENTIAL_BEARING_PLATE(-1),
+                             DIFFERENTIAL_PIN_TOWER(1),
+                             DIFFERENTIAL_PIN_TOWER(-1))
+    emit difference(frame, DIFFERENTIAL_CRADLE_FASTENER_CUTTERS())
+
+
+command DIFFERENTIAL_CRADLE_FASTENER_CUTTERS() -> solid:
+    let hole: solid = translate(cylinder(2.2, 24.0), 0.0, 0.0, -30.0)
+    emit compound(translate(hole, 44.0, 28.0, 0.0),
+                  translate(hole, 44.0, -28.0, 0.0),
+                  translate(hole, -44.0, 28.0, 0.0),
+                  translate(hole, -44.0, -28.0, 0.0))
+
+
+@meta(material="M4 x 20 steel screw and nyloc nut", assembly.datums=[
+    {"id": "mount", "kind": "point", "origin_mm": [0.0, 0.0, 0.0]}
+])
+command DIFFERENTIAL_CRADLE_FASTENERS() -> solid:
+    let shaft: solid = translate(cylinder(2.0, 18.0), 0.0, 0.0, -29.0)
+    let head: solid = translate(cylinder(3.5, 3.0), 0.0, 0.0, -11.0)
+    let nut: solid = translate(cylinder(4.0, 4.0), 0.0, 0.0, -29.0)
+    let fastener: solid = compound(shaft, head, nut)
+    emit compound(translate(fastener, 44.0, 28.0, 0.0),
+                  translate(fastener, 44.0, -28.0, 0.0),
+                  translate(fastener, -44.0, 28.0, 0.0),
+                  translate(fastener, -44.0, -28.0, 0.0))
+
+
+@meta(material="PETG", assembly.datums=[
+    {"id": "mount", "kind": "point", "origin_mm": [0.0, 0.0, 0.0]},
+    {"id": "differential_axis", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]},
+    {"id": "planet_axis", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0]}
+])
+command DIFFERENTIAL_CRADLE_FINISHED() -> solid:
+    emit DIFFERENTIAL_CRADLE()
 
 
 command CHASSIS_PIVOT_CUTTERS(side: int) -> solid:
@@ -559,16 +627,17 @@ command CHASSIS_TUB() -> solid:
 
 
 command DIFFERENTIAL_FLOOR_CLEARANCE() -> solid:
-    # Remove only the center floor beneath the 41 mm gear envelope. The cradle
-    # rails land on intact floor strips immediately outside this opening.
-    emit translate(box(48.0, 90.0, 20.0), 0.0, 0.0, -20.0)
+    # Clear the full carrier plates below the gear axis. Outboard feet at
+    # x=+/-44 mm land on intact floor beyond this 76 mm opening.
+    emit translate(box(76.0, 90.0, 20.0), 0.0, 0.0, -20.0)
 
 
 command CHASSIS_CUT_TUB() -> solid:
     emit difference(CHASSIS_TUB(),
                     CHASSIS_PIVOT_CUTTERS(1),
                     CHASSIS_PIVOT_CUTTERS(-1),
-                    DIFFERENTIAL_FLOOR_CLEARANCE())
+                    DIFFERENTIAL_FLOOR_CLEARANCE(),
+                    DIFFERENTIAL_CRADLE_FASTENER_CUTTERS())
 
 
 command CHASSIS_FRONT_SEGMENT() -> solid:
@@ -612,13 +681,15 @@ command CHASSIS_SIDE_INTERFACE(side: int) -> solid:
         {"id": "differential_axis", "kind": "axis",
          "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]},
         {"id": "planet_axis", "kind": "axis",
-         "origin_mm": [0.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0]}
+         "origin_mm": [0.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0]},
+        {"id": "differential_mount", "kind": "point",
+         "origin_mm": [0.0, 0.0, 0.0]}
     ]
 )
 command CHASSIS_FINISHED() -> solid:
     emit compound(CHASSIS_FRONT_SEGMENT(), CHASSIS_REAR_SEGMENT(),
                   CHASSIS_SIDE_INTERFACE(1), CHASSIS_SIDE_INTERFACE(-1),
-                  DIFFERENTIAL_CRADLE(), CHASSIS_SPLICE_KEYS())
+                  CHASSIS_SPLICE_KEYS())
 
 
 command DIFFERENTIAL_CARTRIDGE_PREVIEW() -> solid:
@@ -641,8 +712,10 @@ command DIFFERENTIAL_CARTRIDGE_PREVIEW() -> solid:
                vector(0.0, 1.0, 0.0)),
         0.0, -155.0, 0.0
     )
-    emit compound(DIFFERENTIAL_CRADLE(), DIFFERENTIAL_CARRIER_BEARINGS(),
+    emit compound(DIFFERENTIAL_CRADLE(), DIFFERENTIAL_CRADLE_FASTENERS(),
+                  DIFFERENTIAL_CARRIER_BEARINGS(),
                   DIFFERENTIAL_CROSS_PIN(),
+                  DIFFERENTIAL_PLANET_THRUST_WASHERS(),
                   FRONT_DIFFERENTIAL_PLANET_GEAR_GEOMETRY(),
                   REAR_DIFFERENTIAL_PLANET_GEAR_GEOMETRY(),
                   left_gear, right_gear, left_shaft, right_shaft)
@@ -746,9 +819,15 @@ command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
              "front_differential_planet_gear")
     add_part(rover, REAR_DIFFERENTIAL_PLANET_GEAR(),
              "rear_differential_planet_gear")
+    add_part(rover, DIFFERENTIAL_CRADLE_FINISHED(),
+             "differential_cradle")
+    add_part(rover, DIFFERENTIAL_CRADLE_FASTENERS(),
+             "differential_cradle_fasteners")
     add_part(rover, DIFFERENTIAL_CARRIER_BEARINGS(),
              "differential_carrier_bearings")
     add_part(rover, DIFFERENTIAL_CROSS_PIN(), "differential_cross_pin")
+    add_part(rover, DIFFERENTIAL_PLANET_THRUST_WASHERS(),
+             "differential_planet_thrust_washers")
 
     add_named_mate(rover, "left_rocker_pivot", "revolute",
                    "chassis", "left_rocker", "left_rocker", "chassis_pivot")
@@ -825,11 +904,21 @@ command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
     add_named_mate(rover, "right_side_gear_mount", "rigid",
                    "right_rocker", "chassis_pivot",
                    "right_differential_side_gear", "axis")
+    add_named_mate(rover, "differential_cradle_mount", "rigid",
+                   "chassis", "differential_mount",
+                   "differential_cradle", "mount")
+    add_named_mate(rover, "differential_fastener_mount", "rigid",
+                   "differential_cradle", "mount",
+                   "differential_cradle_fasteners", "mount")
     add_named_mate(rover, "differential_bearing_mount", "rigid",
-                   "chassis", "differential_axis",
+                   "differential_cradle", "differential_axis",
                    "differential_carrier_bearings", "axis")
     add_named_mate(rover, "differential_cross_pin_mount", "rigid",
-                   "chassis", "planet_axis", "differential_cross_pin", "axis")
+                   "differential_cradle", "planet_axis",
+                   "differential_cross_pin", "axis")
+    add_named_mate(rover, "differential_thrust_washer_mount", "rigid",
+                   "differential_cradle", "planet_axis",
+                   "differential_planet_thrust_washers", "axis")
     add_named_mate(rover, "front_planet_pivot", "revolute",
                    "differential_cross_pin", "axis",
                    "front_differential_planet_gear", "axis")

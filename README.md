@@ -86,8 +86,10 @@ constraint once that release is available.
 
 The current [differential cartridge design](docs/differential.md) uses four
 spherical-involute miter gears. Its two planet gears are separate parts with
-independent running joints on a fixed cross-pin; exact BREP tests verify bore
-clearance and all four meshes through a complete tooth pitch.
+independent running joints on a retained shoulder pin. Integral thrust hubs
+and low-friction washers control axial float without clamping the planets, and
+the four-fastener cradle is removable from the chassis. Exact BREP tests verify
+pin and thrust clearances plus all four meshes through a complete tooth pitch.
 
 ## License
 
