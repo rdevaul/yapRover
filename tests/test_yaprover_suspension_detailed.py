@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -44,12 +45,24 @@ PART_INSTANCES = (
     ("RIGHT_WHEEL", "right_front_wheel"),
     ("RIGHT_WHEEL", "right_middle_wheel"),
     ("RIGHT_WHEEL", "right_rear_wheel"),
-    ("LEFT_FRONT_AXLE", "left_front_shaft"),
-    ("LEFT_BOGIE_AXLE", "left_middle_shaft"),
-    ("LEFT_BOGIE_AXLE", "left_rear_shaft"),
-    ("RIGHT_FRONT_AXLE", "right_front_shaft"),
-    ("RIGHT_BOGIE_AXLE", "right_middle_shaft"),
-    ("RIGHT_BOGIE_AXLE", "right_rear_shaft"),
+    ("LEFT_WHEEL_AXLE_SHAFT", "left_front_shaft"),
+    ("LEFT_BOGIE_WHEEL_AXLE_SHAFT", "left_middle_shaft"),
+    ("LEFT_BOGIE_WHEEL_AXLE_SHAFT", "left_rear_shaft"),
+    ("RIGHT_WHEEL_AXLE_SHAFT", "right_front_shaft"),
+    ("RIGHT_BOGIE_WHEEL_AXLE_SHAFT", "right_middle_shaft"),
+    ("RIGHT_BOGIE_WHEEL_AXLE_SHAFT", "right_rear_shaft"),
+    ("LEFT_WHEEL_AXLE_SPACER", "left_front_spacer"),
+    ("LEFT_BOGIE_WHEEL_AXLE_SPACER", "left_middle_spacer"),
+    ("LEFT_BOGIE_WHEEL_AXLE_SPACER", "left_rear_spacer"),
+    ("RIGHT_WHEEL_AXLE_SPACER", "right_front_spacer"),
+    ("RIGHT_BOGIE_WHEEL_AXLE_SPACER", "right_middle_spacer"),
+    ("RIGHT_BOGIE_WHEEL_AXLE_SPACER", "right_rear_spacer"),
+    ("LEFT_WHEEL_AXLE_HARDWARE", "left_front_axle_hardware"),
+    ("LEFT_WHEEL_AXLE_HARDWARE", "left_middle_axle_hardware"),
+    ("LEFT_WHEEL_AXLE_HARDWARE", "left_rear_axle_hardware"),
+    ("RIGHT_WHEEL_AXLE_HARDWARE", "right_front_axle_hardware"),
+    ("RIGHT_WHEEL_AXLE_HARDWARE", "right_middle_axle_hardware"),
+    ("RIGHT_WHEEL_AXLE_HARDWARE", "right_rear_axle_hardware"),
     ("LEFT_WHEEL_BEARINGS", "left_front_bearings"),
     ("LEFT_WHEEL_BEARINGS", "left_middle_bearings"),
     ("LEFT_WHEEL_BEARINGS", "left_rear_bearings"),
@@ -62,8 +75,14 @@ PART_INSTANCES = (
     ("RIGHT_BOGIE_PIVOT_BEARINGS", "right_bogie_pivot_bearings"),
     ("LEFT_ROCKER_PIVOT_SHAFT", "left_rocker_pivot_shaft"),
     ("RIGHT_ROCKER_PIVOT_SHAFT", "right_rocker_pivot_shaft"),
+    ("LEFT_ROCKER_PIVOT_KEYS", "left_rocker_pivot_keys"),
+    ("RIGHT_ROCKER_PIVOT_KEYS", "right_rocker_pivot_keys"),
+    ("LEFT_ROCKER_PIVOT_HARDWARE", "left_rocker_pivot_hardware"),
+    ("RIGHT_ROCKER_PIVOT_HARDWARE", "right_rocker_pivot_hardware"),
     ("LEFT_BOGIE_PIVOT_SHAFT", "left_bogie_pivot_shaft"),
     ("RIGHT_BOGIE_PIVOT_SHAFT", "right_bogie_pivot_shaft"),
+    ("LEFT_BOGIE_PIVOT_HARDWARE", "left_bogie_pivot_hardware"),
+    ("RIGHT_BOGIE_PIVOT_HARDWARE", "right_bogie_pivot_hardware"),
     ("LEFT_DIFFERENTIAL_SIDE_GEAR", "left_differential_side_gear"),
     ("RIGHT_DIFFERENTIAL_SIDE_GEAR", "right_differential_side_gear"),
     ("FRONT_DIFFERENTIAL_PLANET_GEAR", "front_differential_planet_gear"),
@@ -96,6 +115,30 @@ HARDWARE_MATES = (
      "middle_axle", "axle"),
     ("right_rear_shaft_mount", "right_bogie", "right_rear_shaft",
      "rear_axle", "axle"),
+    ("left_front_spacer_mount", "left_rocker", "left_front_spacer",
+     "front_axle", "axle"),
+    ("left_middle_spacer_mount", "left_bogie", "left_middle_spacer",
+     "middle_axle", "axle"),
+    ("left_rear_spacer_mount", "left_bogie", "left_rear_spacer",
+     "rear_axle", "axle"),
+    ("right_front_spacer_mount", "right_rocker", "right_front_spacer",
+     "front_axle", "axle"),
+    ("right_middle_spacer_mount", "right_bogie", "right_middle_spacer",
+     "middle_axle", "axle"),
+    ("right_rear_spacer_mount", "right_bogie", "right_rear_spacer",
+     "rear_axle", "axle"),
+    ("left_front_axle_hardware_mount", "left_rocker",
+     "left_front_axle_hardware", "front_axle", "axle"),
+    ("left_middle_axle_hardware_mount", "left_bogie",
+     "left_middle_axle_hardware", "middle_axle", "axle"),
+    ("left_rear_axle_hardware_mount", "left_bogie",
+     "left_rear_axle_hardware", "rear_axle", "axle"),
+    ("right_front_axle_hardware_mount", "right_rocker",
+     "right_front_axle_hardware", "front_axle", "axle"),
+    ("right_middle_axle_hardware_mount", "right_bogie",
+     "right_middle_axle_hardware", "middle_axle", "axle"),
+    ("right_rear_axle_hardware_mount", "right_bogie",
+     "right_rear_axle_hardware", "rear_axle", "axle"),
     ("left_front_bearing_mount", "left_front_wheel", "left_front_bearings",
      "axle", "axle"),
     ("left_middle_bearing_mount", "left_middle_wheel", "left_middle_bearings",
@@ -120,10 +163,22 @@ HARDWARE_MATES = (
      "chassis_pivot", "axle"),
     ("right_rocker_shaft_mount", "right_rocker", "right_rocker_pivot_shaft",
      "chassis_pivot", "axle"),
+    ("left_rocker_key_mount", "left_rocker", "left_rocker_pivot_keys",
+     "chassis_pivot", "axle"),
+    ("right_rocker_key_mount", "right_rocker", "right_rocker_pivot_keys",
+     "chassis_pivot", "axle"),
+    ("left_rocker_hardware_mount", "left_rocker",
+     "left_rocker_pivot_hardware", "chassis_pivot", "axle"),
+    ("right_rocker_hardware_mount", "right_rocker",
+     "right_rocker_pivot_hardware", "chassis_pivot", "axle"),
     ("left_bogie_shaft_mount", "left_rocker", "left_bogie_pivot_shaft",
      "bogie_pivot", "axle"),
     ("right_bogie_shaft_mount", "right_rocker", "right_bogie_pivot_shaft",
      "bogie_pivot", "axle"),
+    ("left_bogie_hardware_mount", "left_rocker",
+     "left_bogie_pivot_hardware", "bogie_pivot", "axle"),
+    ("right_bogie_hardware_mount", "right_rocker",
+     "right_bogie_pivot_hardware", "bogie_pivot", "axle"),
     ("left_side_gear_mount", "left_rocker", "left_differential_side_gear",
      "chassis_pivot", "axis"),
     ("right_side_gear_mount", "right_rocker", "right_differential_side_gear",
@@ -245,13 +300,23 @@ def test_every_printed_component_fits_220_mm_bed(source):
         assert np.all(_extent(solid) <= [220.0, 220.0, 250.0]), (name, _extent(solid))
 
 
+@pytest.mark.expensive_geometry
+def test_split_rocker_halves_share_one_band_without_intersection(source):
+    front = _compile(source, "ROCKER_FRONT_COMPONENT")
+    rear = _compile(source, "ROCKER_REAR_COMPONENT")
+    measurement = measure_brep_pair("rocker_front", front, "rocker_rear", rear)
+
+    assert measurement.intersection_volume <= 1e-7
+    assert measurement.clearance <= 0.05
+
+
 def test_detailed_geometry_retains_proven_datum_graph(detailed_solids):
     assembly = make_detailed_assembly(detailed_solids)
     result = assembly.solve("chassis", {"left_rocker_pivot": math.radians(12.0)})
 
     assert result.success, result.errors
-    assert len(assembly.parts) == 40
-    assert len(assembly.mates) == 39
+    assert len(assembly.parts) == 58
+    assert len(assembly.mates) == 57
     assert assembly._joint_values["right_rocker_pivot"] == pytest.approx(
         math.radians(-12.0)
     )
@@ -271,6 +336,8 @@ def test_metric_hardware_is_explicit_and_dimensionally_bounded(detailed_solids):
 
     assert len([name for name in assembly.parts if name.endswith("_shaft")]) == 10
     assert len([name for name in assembly.parts if name.endswith("_bearings")]) == 11
+    assert len([name for name in assembly.parts if name.endswith("_spacer")]) == 6
+    assert len([name for name in assembly.parts if name.endswith("_hardware")]) == 10
     bearing_extent = _extent(detailed_solids["LEFT_WHEEL_BEARINGS"])
     np.testing.assert_allclose(bearing_extent[[0, 2]], [22.0, 21.839595], atol=0.02)
     assert bearing_extent[1] == pytest.approx(35.7, abs=0.02)
@@ -278,6 +345,38 @@ def test_metric_hardware_is_explicit_and_dimensionally_bounded(detailed_solids):
         if name.endswith(("_shaft", "_bearings")):
             datum = part.datums.get("axle") or part.datums["axis"]
             np.testing.assert_allclose(datum.direction[:3], [0, 1, 0])
+
+
+def test_tightened_lateral_stack_restores_310_mm_track(detailed_solids):
+    assembly = make_detailed_assembly(detailed_solids)
+    assert assembly.solve("chassis").success
+    positioned = assembly.positioned_parts()
+
+    left_bounds = solidbbox(positioned["left_front_wheel"])
+    right_bounds = solidbbox(positioned["right_front_wheel"])
+    left_center = (left_bounds[0][1] + left_bounds[1][1]) / 2.0
+    right_center = (right_bounds[0][1] + right_bounds[1][1]) / 2.0
+    assert left_center == pytest.approx(155.0, abs=0.02)
+    assert right_center == pytest.approx(-155.0, abs=0.02)
+    assert left_center - right_center == pytest.approx(310.0, abs=0.02)
+
+    shaft_extent = _extent(detailed_solids["LEFT_WHEEL_AXLE_SHAFT"])
+    spacer_extent = _extent(detailed_solids["LEFT_WHEEL_AXLE_SPACER"])
+    bogie_shaft_extent = _extent(
+        detailed_solids["LEFT_BOGIE_WHEEL_AXLE_SHAFT"]
+    )
+    bogie_spacer_extent = _extent(
+        detailed_solids["LEFT_BOGIE_WHEEL_AXLE_SPACER"]
+    )
+    assert shaft_extent[1] == pytest.approx(84.0, abs=0.02)
+    assert spacer_extent[1] == pytest.approx(21.4, abs=0.02)
+    assert bogie_shaft_extent[1] == pytest.approx(69.0, abs=0.02)
+    assert bogie_spacer_extent[1] == pytest.approx(4.4, abs=0.02)
+
+    shaft_bounds = solidbbox(detailed_solids["LEFT_WHEEL_AXLE_SHAFT"])
+    hardware_bounds = solidbbox(detailed_solids["LEFT_WHEEL_AXLE_HARDWARE"])
+    assert shaft_bounds[0][1] == pytest.approx(-56.0, abs=0.02)
+    assert hardware_bounds[0][1] > 18.0
 
 
 def test_physical_differential_tracks_the_affine_joint_contract(detailed_solids):
@@ -502,8 +601,16 @@ def test_full_dsl_build_creates_valid_v02_product_package(tmp_path, source):
     assert result.success, result.error_message
     manifest = result.manifest
     assert manifest.data["schema"] == "ycpkg-spec-v0.2"
-    assert len(manifest.data["components"]) == 40
-    assert len(manifest.data["instances"]) == 40
+    assert len(manifest.data["instances"]) == 58
+    assert len(manifest.data["components"]) <= 58
+    components = {
+        component["id"]: component for component in manifest.data["components"]
+    }
+    dispositions = Counter(
+        components[instance["component"]]["disposition"]
+        for instance in manifest.data["instances"]
+    )
+    assert dispositions == {"make": 16, "buy": 30, "raw_stock": 12}
     assert manifest.data["geometry"]["primary"]["schema"] == (
         "yapcad-geometry-json-v0.2"
     )

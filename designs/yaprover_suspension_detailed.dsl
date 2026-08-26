@@ -37,6 +37,26 @@ command AXIS_BORE_CUTTERS(x: float, y: float, z: float) -> solid:
     emit translate(rotate(raw, -90.0, 0.0, 0.0), x, y, z)
 
 
+command AXIS_LOW_HEAD_CUTTER(x: float, y: float, z: float) -> solid:
+    # Ø13.2 x 4.9 mm pocket entering from the negative-Y face of a 16 mm
+    # wheel-axis boss. Mirroring the finished right-hand link puts the pocket
+    # on its positive-Y (chassis-facing) side automatically.
+    let raw: solid = translate(cylinder(6.6, 4.9), 0.0, 0.0, -2.45)
+    let on_y: solid = rotate(raw, -90.0, 0.0, 0.0)
+    emit translate(on_y, x, y - 5.85, z)
+
+
+command AXIS_OUTBOARD_RETENTION_CUTTER(
+    x: float, y: float, z: float
+) -> solid:
+    # Ø16.4 x 3.4 mm recess entering the positive-Y face of a 16 mm boss.
+    # It houses a washer and retaining clip without projecting toward the
+    # middle wheel. Mirroring moves it to the correct right-hand face.
+    let raw: solid = translate(cylinder(8.2, 3.4), 0.0, 0.0, -1.7)
+    let on_y: solid = rotate(raw, -90.0, 0.0, 0.0)
+    emit translate(on_y, x, y + 6.5, z)
+
+
 command AXIS_KEYED_CUTTERS(x: float, y: float, z: float) -> solid:
     let bore: solid = AXIS_BORE_CUTTERS(x, y, z)
     let keyway: solid = translate(box(2.2, 18.0, 2.2),
@@ -61,8 +81,26 @@ command AXIS_BOSS_BORE(x: float, y: float, z: float) -> solid:
                     AXIS_BORE_CUTTERS(x, y, z))
 
 
+command AXIS_BOSS_WHEEL_AXLE(x: float, y: float, z: float) -> solid:
+    emit difference(AXIS_BOSS_BLANK(x, y, z),
+                    AXIS_BORE_CUTTERS(x, y, z),
+                    AXIS_LOW_HEAD_CUTTER(x, y, z))
+
+
 command AXIS_BOSS_KEYED(x: float, y: float, z: float) -> solid:
     emit difference(AXIS_BOSS_BLANK(x, y, z),
+                    AXIS_KEYED_CUTTERS(x, y, z))
+
+
+command AXIS_BOSS_HALF_BLANK(x: float, y: float, z: float) -> solid:
+    # An 8 mm axial half-hub lets the two bed-sized rocker pieces share one
+    # 16 mm suspension band instead of occupying separate lateral layers.
+    let raw: solid = translate(cylinder(15.0, 8.0), 0.0, 0.0, -4.0)
+    emit translate(rotate(raw, -90.0, 0.0, 0.0), x, y, z)
+
+
+command AXIS_BOSS_KEYED_HALF(x: float, y: float, z: float) -> solid:
+    emit difference(AXIS_BOSS_HALF_BLANK(x, y, z),
                     AXIS_KEYED_CUTTERS(x, y, z))
 
 
@@ -86,30 +124,36 @@ command ROCKER_FRONT_COMPONENT() -> solid:
     # C -> F = (+190, -75) mm.  This 204.3 mm component fits a 220 mm bed.
     let arm: solid = ARM_FILLETED(204.266982, 21.540976,
                                   95.0, -8.5, -37.5)
-    let center: solid = AXIS_BOSS_KEYED(0.0, -8.5, 0.0)
-    let front: solid = AXIS_BOSS_BORE(190.0, -8.5, -75.0)
+    let center: solid = AXIS_BOSS_KEYED_HALF(0.0, -12.5, 0.0)
+    let front: solid = AXIS_BOSS_WHEEL_AXLE(190.0, -8.5, -75.0)
     let joined: solid = union(arm, center, front)
     emit difference(joined, AXIS_KEYED_CUTTERS(0.0, -8.5, 0.0),
-                    AXIS_BORE_CUTTERS(190.0, -8.5, -75.0))
+                    AXIS_BOSS_HALF_BLANK(0.0, -4.5, 0.0),
+                    AXIS_BORE_CUTTERS(190.0, -8.5, -75.0),
+                    AXIS_LOW_HEAD_CUTTER(190.0, -8.5, -75.0))
 
 
 command ROCKER_REAR_COMPONENT() -> solid:
-    # C -> B = (-95, -35) mm.  The adjacent layer forms a keyed split rocker.
+    # C -> B = (-95, -35) mm. Complementary 8 mm center half-hubs join the
+    # two bed-sized pieces within one 16 mm rocker band.
     let arm: solid = ARM_FILLETED(101.242284, 159.775141,
-                                  -47.5, 8.5, -17.5)
-    let center: solid = AXIS_BOSS_KEYED(0.0, 8.5, 0.0)
-    let bogie: solid = AXIS_BOSS_BORE(-95.0, 8.5, -35.0)
+                                  -47.5, -8.5, -17.5)
+    let center: solid = AXIS_BOSS_KEYED_HALF(0.0, -4.5, 0.0)
+    let bogie: solid = AXIS_BOSS_BORE(-95.0, -8.5, -35.0)
     let joined: solid = union(arm, center, bogie)
-    emit difference(joined, AXIS_KEYED_CUTTERS(0.0, 8.5, 0.0),
-                    AXIS_BORE_CUTTERS(-95.0, 8.5, -35.0))
+    emit difference(joined, AXIS_KEYED_CUTTERS(0.0, -4.5, 0.0),
+                    AXIS_BOSS_HALF_BLANK(0.0, -12.5, 0.0),
+                    AXIS_OUTBOARD_RETENTION_CUTTER(0.0, -8.5, 0.0),
+                    AXIS_BORE_CUTTERS(-95.0, -8.5, -35.0))
 
 
 command ROCKER_FINISHED(side: int) -> solid:
     require side == -1 or side == 1, "side must be -1 (right) or +1 (left)"
-    # Occupy the middle lateral band between the inboard bogie and wheel.
+    # Both split halves share the chassis-adjacent band y=98.5..114.5 mm on
+    # the left. Their complementary half-hubs form one full-width pivot.
     let assembled: solid = compound(ROCKER_FRONT_COMPONENT(),
                                      ROCKER_REAR_COMPONENT())
-    emit translate(assembled, 0.0, side * -23.0, 0.0)
+    emit translate(assembled, 0.0, side * -40.0, 0.0)
 
 
 command BOGIE_FINISHED(side: int) -> solid:
@@ -119,18 +163,20 @@ command BOGIE_FINISHED(side: int) -> solid:
     let rear_arm: solid = ARM_FILLETED(103.077641, 157.166346,
                                        -47.5, 0.0, -20.0)
     let pivot: solid = AXIS_BOSS_DUAL_608(0.0, 0.0, 0.0)
-    let middle: solid = AXIS_BOSS_BORE(95.0, 0.0, -40.0)
-    let rear: solid = AXIS_BOSS_BORE(-95.0, 0.0, -40.0)
+    let middle: solid = AXIS_BOSS_WHEEL_AXLE(95.0, 0.0, -40.0)
+    let rear: solid = AXIS_BOSS_WHEEL_AXLE(-95.0, 0.0, -40.0)
     let joined: solid = union(middle_arm, rear_arm, pivot, middle, rear)
     let assembled: solid = difference(
         joined,
         AXIS_DUAL_608_CUTTERS(0.0, 0.0, 0.0),
         AXIS_BORE_CUTTERS(95.0, 0.0, -40.0),
-        AXIS_BORE_CUTTERS(-95.0, 0.0, -40.0)
+        AXIS_BORE_CUTTERS(-95.0, 0.0, -40.0),
+        AXIS_LOW_HEAD_CUTTER(95.0, 0.0, -40.0),
+        AXIS_LOW_HEAD_CUTTER(-95.0, 0.0, -40.0)
     )
-    # Put the bogie inboard of the rocker's rear layer.  The one-millimetre
-    # axial gap at their shared pivot is swept by the clearance tests.
-    emit translate(assembled, 0.0, side * -48.5, 0.0)
+    # Put the bogie in the adjacent outboard band. On the left it occupies
+    # y=115.5..131.5 mm, with 1 mm rocker clearance and 5.5 mm wheel clearance.
+    emit translate(assembled, 0.0, side * -31.5, 0.0)
 
 
 command WHEEL_HUB() -> solid:
@@ -152,22 +198,28 @@ command WHEEL_HUB() -> solid:
     emit rotate(translate(cut, 0.0, 0.0, -18.0), -90.0, 0.0, 0.0)
 
 
-@meta(material="PETG", assembly.datums=[
+@meta(material="PETG", component.id="wheel_130x36",
+      component.name="Printed 130 x 36 mm rover wheel",
+      component.disposition="make", manufacturing.process="FDM",
+      assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
 command LEFT_WHEEL() -> solid:
-    # Axial placement along the same infinite mate axis gives a 343 mm wheel-
-    # plane track and room for three independent printed suspension layers.
-    emit translate(WHEEL_HUB(), 0.0, 16.5, 0.0)
+    # Wheel center lies on the annotated y=+155 mm axle plane, restoring the
+    # original 310 mm track while retaining 5.5 mm link-to-wheel clearance.
+    emit WHEEL_HUB()
 
 
-@meta(material="PETG", assembly.datums=[
+@meta(material="PETG", component.id="wheel_130x36",
+      component.name="Printed 130 x 36 mm rover wheel",
+      component.disposition="make", manufacturing.process="FDM",
+      assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
 command RIGHT_WHEEL() -> solid:
-    emit translate(WHEEL_HUB(), 0.0, -16.5, 0.0)
+    emit WHEEL_HUB()
 
 
 # ---------------------------------------------------------------------------
@@ -208,6 +260,14 @@ command M8_NUT(center_y: float) -> solid:
     emit translate(rotate(centered, -90.0, 0.0, 0.0), 0.0, center_y, 0.0)
 
 
+command M8_LOW_HEAD(center_y: float) -> solid:
+    # Simplified Ø12.8 x 4 mm low-profile socket head. It sits 0.5 mm below
+    # the link's inboard face in the matching Ø13.2 x 4.9 mm counterbore.
+    let centered: solid = translate(cylinder(6.4, 4.0), 0.0, 0.0, -2.0)
+    emit translate(rotate(centered, -90.0, 0.0, 0.0),
+                   0.0, center_y, 0.0)
+
+
 command AXLE_SPACER(length_mm: float, center_y: float) -> solid:
     let sleeve: solid = translate(cylinder(6.5, length_mm),
                                   0.0, 0.0, -length_mm / 2.0)
@@ -233,24 +293,37 @@ command BEARING_608(center_y: float) -> solid:
     emit translate(rotate(centered, -90.0, 0.0, 0.0), 0.0, center_y, 0.0)
 
 
-command LEFT_FRONT_AXLE_GEOMETRY() -> solid:
-    let shaft: solid = AXLE_SHAFT(92.0, -2.5)
-    let spacer: solid = AXLE_SPACER(20.8, -12.5)
-    emit compound(shaft, spacer,
-                  M8_WASHER(-40.4), M8_NUT(-44.6),
-                  M8_WASHER(35.4), M8_NUT(39.6))
+command LEFT_WHEEL_AXLE_SHAFT_GEOMETRY() -> solid:
+    # Common M8 x 80 low-head axle bolt. The modeled shank runs from the
+    # recessed head underside at y=-52 mm to y=+28 mm; no material projects
+    # inboard of y=-56 mm, 0.5 mm inside the printed link face.
+    emit compound(AXLE_SHAFT(80.0, -12.0), M8_LOW_HEAD(-54.0))
 
 
-command LEFT_BOGIE_AXLE_GEOMETRY() -> solid:
-    let shaft: solid = AXLE_SHAFT(110.0, -11.0)
-    let spacer: solid = AXLE_SPACER(37.8, -21.0)
-    emit compound(shaft, spacer,
-                  M8_WASHER(-57.4), M8_NUT(-61.6),
-                  M8_WASHER(35.4), M8_NUT(39.6))
+command LEFT_WHEEL_AXLE_SPACER_GEOMETRY() -> solid:
+    # Bridges the common suspension band to the wheel's inboard bearing face.
+    emit AXLE_SPACER(21.4, -29.25)
+
+
+command LEFT_BOGIE_WHEEL_AXLE_SHAFT_GEOMETRY() -> solid:
+    # The outboard bogie band uses a shorter standard M8 x 65 envelope.
+    # Its recessed head starts at y=-39 mm and the shank ends at y=+30 mm.
+    emit compound(AXLE_SHAFT(65.0, -2.5), M8_LOW_HEAD(-37.0))
+
+
+command LEFT_BOGIE_WHEEL_AXLE_SPACER_GEOMETRY() -> solid:
+    # The wheel remains on the common y=155 mm plane, leaving a short spacer
+    # between the outboard bogie face and the wheel's inboard bearing.
+    emit AXLE_SPACER(4.4, -20.75)
+
+
+command LEFT_WHEEL_AXLE_HARDWARE_GEOMETRY() -> solid:
+    # The recessed bolt head replaces the collision-prone inboard washer/nut.
+    emit compound(M8_WASHER(18.9), M8_NUT(23.1))
 
 
 command LEFT_WHEEL_BEARING_GEOMETRY() -> solid:
-    emit compound(BEARING_608(2.15), BEARING_608(30.85))
+    emit compound(BEARING_608(-14.35), BEARING_608(14.35))
 
 
 command LEFT_CHASSIS_PIVOT_BEARING_GEOMETRY() -> solid:
@@ -258,42 +331,128 @@ command LEFT_CHASSIS_PIVOT_BEARING_GEOMETRY() -> solid:
 
 
 command LEFT_BOGIE_PIVOT_BEARING_GEOMETRY() -> solid:
-    emit compound(BEARING_608(-53.0), BEARING_608(-44.0))
+    # Follow the bogie into its outboard suspension band.
+    emit compound(BEARING_608(-36.0), BEARING_608(-27.0))
 
 
-@meta(material="steel / spacer tube", assembly.datums=[
+@meta(material="alloy steel", component.id="wheel_axle_m8x80_low_head",
+      component.name="M8 x 80 low-head wheel axle bolt",
+      component.disposition="buy", procurement.specification="M8 x 80 low head",
+      assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
-command LEFT_FRONT_AXLE() -> solid:
-    emit LEFT_FRONT_AXLE_GEOMETRY()
+command LEFT_WHEEL_AXLE_SHAFT() -> solid:
+    emit LEFT_WHEEL_AXLE_SHAFT_GEOMETRY()
 
 
-@meta(material="steel / spacer tube", assembly.datums=[
+@meta(material="alloy steel", component.id="wheel_axle_m8x80_low_head_right",
+      component.name="M8 x 80 low-head wheel axle bolt (right hand)",
+      component.disposition="buy", procurement.specification="M8 x 80 low head",
+      assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
-command RIGHT_FRONT_AXLE() -> solid:
-    emit mirror(LEFT_FRONT_AXLE_GEOMETRY(), vector(0.0, 1.0, 0.0))
+command RIGHT_WHEEL_AXLE_SHAFT() -> solid:
+    emit mirror(LEFT_WHEEL_AXLE_SHAFT_GEOMETRY(), vector(0.0, 1.0, 0.0))
 
 
-@meta(material="steel / spacer tube", assembly.datums=[
+@meta(material="alloy steel", component.id="bogie_wheel_axle_m8x65_low_head",
+      component.name="M8 x 65 low-head bogie wheel axle bolt",
+      component.disposition="buy", procurement.specification="M8 x 65 low head",
+      assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
-command LEFT_BOGIE_AXLE() -> solid:
-    emit LEFT_BOGIE_AXLE_GEOMETRY()
+command LEFT_BOGIE_WHEEL_AXLE_SHAFT() -> solid:
+    emit LEFT_BOGIE_WHEEL_AXLE_SHAFT_GEOMETRY()
 
 
-@meta(material="steel / spacer tube", assembly.datums=[
+@meta(material="alloy steel",
+      component.id="bogie_wheel_axle_m8x65_low_head_right",
+      component.name="M8 x 65 low-head bogie wheel axle bolt (right hand)",
+      component.disposition="buy", procurement.specification="M8 x 65 low head",
+      assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
-command RIGHT_BOGIE_AXLE() -> solid:
-    emit mirror(LEFT_BOGIE_AXLE_GEOMETRY(), vector(0.0, 1.0, 0.0))
+command RIGHT_BOGIE_WHEEL_AXLE_SHAFT() -> solid:
+    emit mirror(LEFT_BOGIE_WHEEL_AXLE_SHAFT_GEOMETRY(),
+                vector(0.0, 1.0, 0.0))
 
 
-@meta(material="608-2RS steel / rubber", assembly.datums=[
+@meta(material="steel spacer tube", component.id="wheel_spacer_13x8p3x21p4",
+      component.name="Wheel axle spacer, 13 x 8.3 x 21.4 mm",
+      component.disposition="raw_stock", manufacturing.process="cut_to_length",
+      assembly.datums=[
+    {"id": "axle", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command LEFT_WHEEL_AXLE_SPACER() -> solid:
+    emit LEFT_WHEEL_AXLE_SPACER_GEOMETRY()
+
+
+@meta(material="steel spacer tube", component.id="wheel_spacer_13x8p3x21p4_right",
+      component.name="Wheel axle spacer, 13 x 8.3 x 21.4 mm (right hand)",
+      component.disposition="raw_stock", manufacturing.process="cut_to_length",
+      assembly.datums=[
+    {"id": "axle", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command RIGHT_WHEEL_AXLE_SPACER() -> solid:
+    emit mirror(LEFT_WHEEL_AXLE_SPACER_GEOMETRY(), vector(0.0, 1.0, 0.0))
+
+
+@meta(material="steel spacer tube", component.id="bogie_wheel_spacer_4p4mm",
+      component.name="Bogie wheel axle spacer, 13 x 8.3 x 4.4 mm",
+      component.disposition="raw_stock", manufacturing.process="cut_to_length",
+      assembly.datums=[
+    {"id": "axle", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command LEFT_BOGIE_WHEEL_AXLE_SPACER() -> solid:
+    emit LEFT_BOGIE_WHEEL_AXLE_SPACER_GEOMETRY()
+
+
+@meta(material="steel spacer tube",
+      component.id="bogie_wheel_spacer_4p4mm_right",
+      component.name="Bogie wheel axle spacer, 13 x 8.3 x 4.4 mm (right hand)",
+      component.disposition="raw_stock", manufacturing.process="cut_to_length",
+      assembly.datums=[
+    {"id": "axle", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command RIGHT_BOGIE_WHEEL_AXLE_SPACER() -> solid:
+    emit mirror(LEFT_BOGIE_WHEEL_AXLE_SPACER_GEOMETRY(),
+                vector(0.0, 1.0, 0.0))
+
+
+@meta(material="zinc-plated steel", component.id="wheel_axle_retention_m8",
+      component.name="M8 wheel axle washer and nyloc retention set",
+      component.disposition="buy", procurement.specification="M8 metric",
+      assembly.datums=[
+    {"id": "axle", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command LEFT_WHEEL_AXLE_HARDWARE() -> solid:
+    emit LEFT_WHEEL_AXLE_HARDWARE_GEOMETRY()
+
+
+@meta(material="zinc-plated steel", component.id="wheel_axle_retention_m8_right",
+      component.name="M8 wheel axle washer and nyloc retention set (right hand)",
+      component.disposition="buy", procurement.specification="M8 metric",
+      assembly.datums=[
+    {"id": "axle", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command RIGHT_WHEEL_AXLE_HARDWARE() -> solid:
+    emit mirror(LEFT_WHEEL_AXLE_HARDWARE_GEOMETRY(), vector(0.0, 1.0, 0.0))
+
+
+@meta(material="608-2RS steel / rubber", component.id="bearing_608_wheel_pair",
+      component.name="608-2RS wheel bearing pair", component.disposition="buy",
+      component.quantity=2.0, procurement.specification="608-2RS",
+      assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
@@ -301,15 +460,17 @@ command LEFT_WHEEL_BEARINGS() -> solid:
     emit LEFT_WHEEL_BEARING_GEOMETRY()
 
 
-@meta(material="608-2RS steel / rubber", assembly.datums=[
+@meta(material="608-2RS steel / rubber", component.disposition="buy",
+      component.quantity=2.0, procurement.specification="608-2RS", assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
 command RIGHT_WHEEL_BEARINGS() -> solid:
-    emit mirror(LEFT_WHEEL_BEARING_GEOMETRY(), vector(0.0, 1.0, 0.0))
+    emit LEFT_WHEEL_BEARING_GEOMETRY()
 
 
-@meta(material="608-2RS steel / rubber", assembly.datums=[
+@meta(material="608-2RS steel / rubber", component.disposition="buy",
+      component.quantity=2.0, procurement.specification="608-2RS", assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
@@ -317,7 +478,8 @@ command LEFT_CHASSIS_PIVOT_BEARINGS() -> solid:
     emit LEFT_CHASSIS_PIVOT_BEARING_GEOMETRY()
 
 
-@meta(material="608-2RS steel / rubber", assembly.datums=[
+@meta(material="608-2RS steel / rubber", component.disposition="buy",
+      component.quantity=2.0, procurement.specification="608-2RS", assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
@@ -326,7 +488,8 @@ command RIGHT_CHASSIS_PIVOT_BEARINGS() -> solid:
                 vector(0.0, 1.0, 0.0))
 
 
-@meta(material="608-2RS steel / rubber", assembly.datums=[
+@meta(material="608-2RS steel / rubber", component.disposition="buy",
+      component.quantity=2.0, procurement.specification="608-2RS", assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
@@ -334,7 +497,8 @@ command LEFT_BOGIE_PIVOT_BEARINGS() -> solid:
     emit LEFT_BOGIE_PIVOT_BEARING_GEOMETRY()
 
 
-@meta(material="608-2RS steel / rubber", assembly.datums=[
+@meta(material="608-2RS steel / rubber", component.disposition="buy",
+      component.quantity=2.0, procurement.specification="608-2RS", assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
@@ -344,20 +508,33 @@ command RIGHT_BOGIE_PIVOT_BEARINGS() -> solid:
 
 
 command LEFT_ROCKER_PIVOT_SHAFT_GEOMETRY() -> solid:
-    emit compound(AXLE_SHAFT(151.5, -71.25),
-                  SHAFT_KEY(34.5, -22.75),
-                  SHAFT_KEY(8.5, -138.75),
-                  M8_RETAINING_CLIP(-143.8),
-                  M8_WASHER(-5.6), M8_NUT(-1.4))
+    # Ends flush with the recessed outboard clip stack at the single rocker
+    # band's outer face; the middle wheel is another 22.5 mm outboard.
+    emit AXLE_SHAFT(106.5, -93.75)
+
+
+command LEFT_ROCKER_PIVOT_KEYS_GEOMETRY() -> solid:
+    # Stop at the bottom of the recessed washer/clip pocket.
+    emit compound(SHAFT_KEY(12.5, -50.25),
+                  SHAFT_KEY(8.5, -138.75))
+
+
+command LEFT_ROCKER_PIVOT_HARDWARE_GEOMETRY() -> solid:
+    emit compound(M8_RETAINING_CLIP(-143.8),
+                  M8_WASHER(-42.85), M8_RETAINING_CLIP(-41.35))
 
 
 command LEFT_BOGIE_PIVOT_SHAFT_GEOMETRY() -> solid:
-    emit compound(AXLE_SHAFT(70.0, -31.5),
-                  M8_WASHER(-57.4), M8_NUT(-61.6),
-                  M8_WASHER(-5.6), M8_NUT(-1.4))
+    emit AXLE_SHAFT(51.5, -40.75)
 
 
-@meta(material="8 mm steel rod", assembly.datums=[
+command LEFT_BOGIE_PIVOT_HARDWARE_GEOMETRY() -> solid:
+    emit compound(M8_WASHER(-57.4), M8_NUT(-61.6),
+                  M8_WASHER(-22.6), M8_NUT(-18.4))
+
+
+@meta(material="8 mm steel rod", component.disposition="raw_stock",
+      manufacturing.process="cut_to_length", assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
@@ -365,7 +542,8 @@ command LEFT_ROCKER_PIVOT_SHAFT() -> solid:
     emit LEFT_ROCKER_PIVOT_SHAFT_GEOMETRY()
 
 
-@meta(material="8 mm steel rod", assembly.datums=[
+@meta(material="8 mm steel rod", component.disposition="raw_stock",
+      manufacturing.process="cut_to_length", assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
@@ -373,7 +551,8 @@ command RIGHT_ROCKER_PIVOT_SHAFT() -> solid:
     emit mirror(LEFT_ROCKER_PIVOT_SHAFT_GEOMETRY(), vector(0.0, 1.0, 0.0))
 
 
-@meta(material="8 mm steel rod", assembly.datums=[
+@meta(material="8 mm steel rod", component.disposition="raw_stock",
+      manufacturing.process="cut_to_length", assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
@@ -381,12 +560,67 @@ command LEFT_BOGIE_PIVOT_SHAFT() -> solid:
     emit LEFT_BOGIE_PIVOT_SHAFT_GEOMETRY()
 
 
-@meta(material="8 mm steel rod", assembly.datums=[
+@meta(material="8 mm steel rod", component.disposition="raw_stock",
+      manufacturing.process="cut_to_length", assembly.datums=[
     {"id": "axle", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
 command RIGHT_BOGIE_PIVOT_SHAFT() -> solid:
     emit mirror(LEFT_BOGIE_PIVOT_SHAFT_GEOMETRY(), vector(0.0, 1.0, 0.0))
+
+
+@meta(material="2 mm steel key stock", component.disposition="raw_stock",
+      manufacturing.process="cut_to_length", assembly.datums=[
+    {"id": "axle", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command LEFT_ROCKER_PIVOT_KEYS() -> solid:
+    emit LEFT_ROCKER_PIVOT_KEYS_GEOMETRY()
+
+
+@meta(material="2 mm steel key stock", component.disposition="raw_stock",
+      manufacturing.process="cut_to_length", assembly.datums=[
+    {"id": "axle", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command RIGHT_ROCKER_PIVOT_KEYS() -> solid:
+    emit mirror(LEFT_ROCKER_PIVOT_KEYS_GEOMETRY(), vector(0.0, 1.0, 0.0))
+
+
+@meta(material="zinc-plated steel", component.disposition="buy",
+      procurement.specification="M8 metric", assembly.datums=[
+    {"id": "axle", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command LEFT_ROCKER_PIVOT_HARDWARE() -> solid:
+    emit LEFT_ROCKER_PIVOT_HARDWARE_GEOMETRY()
+
+
+@meta(material="zinc-plated steel", component.disposition="buy",
+      procurement.specification="M8 metric", assembly.datums=[
+    {"id": "axle", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command RIGHT_ROCKER_PIVOT_HARDWARE() -> solid:
+    emit mirror(LEFT_ROCKER_PIVOT_HARDWARE_GEOMETRY(), vector(0.0, 1.0, 0.0))
+
+
+@meta(material="zinc-plated steel", component.disposition="buy",
+      procurement.specification="M8 metric", assembly.datums=[
+    {"id": "axle", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command LEFT_BOGIE_PIVOT_HARDWARE() -> solid:
+    emit LEFT_BOGIE_PIVOT_HARDWARE_GEOMETRY()
+
+
+@meta(material="zinc-plated steel", component.disposition="buy",
+      procurement.specification="M8 metric", assembly.datums=[
+    {"id": "axle", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command RIGHT_BOGIE_PIVOT_HARDWARE() -> solid:
+    emit mirror(LEFT_BOGIE_PIVOT_HARDWARE_GEOMETRY(), vector(0.0, 1.0, 0.0))
 
 
 # ---------------------------------------------------------------------------
@@ -447,7 +681,8 @@ command REAR_DIFFERENTIAL_PLANET_GEAR_GEOMETRY() -> solid:
                 vector(1.0, 0.0, 0.0))
 
 
-@meta(material="PETG replaceable gear", assembly.datums=[
+@meta(material="PETG replaceable gear", component.disposition="make",
+      manufacturing.process="FDM", assembly.datums=[
     {"id": "axis", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
@@ -455,7 +690,8 @@ command LEFT_DIFFERENTIAL_SIDE_GEAR() -> solid:
     emit LEFT_DIFFERENTIAL_SIDE_GEAR_GEOMETRY()
 
 
-@meta(material="PETG replaceable gear", assembly.datums=[
+@meta(material="PETG replaceable gear", component.disposition="make",
+      manufacturing.process="FDM", assembly.datums=[
     {"id": "axis", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
@@ -464,7 +700,8 @@ command RIGHT_DIFFERENTIAL_SIDE_GEAR() -> solid:
                 vector(0.0, 1.0, 0.0))
 
 
-@meta(material="PETG replaceable gear", assembly.datums=[
+@meta(material="PETG replaceable gear", component.disposition="make",
+      manufacturing.process="FDM", assembly.datums=[
     {"id": "axis", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0]}
 ])
@@ -472,7 +709,8 @@ command FRONT_DIFFERENTIAL_PLANET_GEAR() -> solid:
     emit FRONT_DIFFERENTIAL_PLANET_GEAR_GEOMETRY()
 
 
-@meta(material="PETG replaceable gear", assembly.datums=[
+@meta(material="PETG replaceable gear", component.disposition="make",
+      manufacturing.process="FDM", assembly.datums=[
     {"id": "axis", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0]}
 ])
@@ -480,7 +718,8 @@ command REAR_DIFFERENTIAL_PLANET_GEAR() -> solid:
     emit REAR_DIFFERENTIAL_PLANET_GEAR_GEOMETRY()
 
 
-@meta(material="608-2RS steel / rubber", assembly.datums=[
+@meta(material="608-2RS steel / rubber", component.disposition="buy",
+      component.quantity=2.0, procurement.specification="608-2RS", assembly.datums=[
     {"id": "axis", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
 ])
@@ -488,7 +727,8 @@ command DIFFERENTIAL_CARRIER_BEARINGS() -> solid:
     emit compound(BEARING_608(32.0), BEARING_608(-32.0))
 
 
-@meta(material="8 mm shoulder screw and locknut", assembly.datums=[
+@meta(material="8 mm shoulder screw and locknut", component.disposition="buy",
+      procurement.specification="M8 shoulder bolt", assembly.datums=[
     {"id": "axis", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0]}
 ])
@@ -503,7 +743,9 @@ command DIFFERENTIAL_CROSS_PIN() -> solid:
     emit rotate(compound(raw, head, thread, locknut), 0.0, 90.0, 0.0)
 
 
-@meta(material="M8 low-friction thrust washer", assembly.datums=[
+@meta(material="M8 low-friction thrust washer", component.disposition="buy",
+      component.quantity=2.0, procurement.specification="M8 thrust washer",
+      assembly.datums=[
     {"id": "axis", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0]}
 ])
@@ -572,7 +814,8 @@ command DIFFERENTIAL_CRADLE_FASTENER_CUTTERS() -> solid:
                   translate(hole, -44.0, -28.0, 0.0))
 
 
-@meta(material="M4 x 20 steel screw and nyloc nut", assembly.datums=[
+@meta(material="M4 x 20 steel screw and nyloc nut", component.disposition="buy",
+      component.quantity=4.0, procurement.specification="M4 x 20", assembly.datums=[
     {"id": "mount", "kind": "point", "origin_mm": [0.0, 0.0, 0.0]}
 ])
 command DIFFERENTIAL_CRADLE_FASTENERS() -> solid:
@@ -586,7 +829,8 @@ command DIFFERENTIAL_CRADLE_FASTENERS() -> solid:
                   translate(fastener, -44.0, -28.0, 0.0))
 
 
-@meta(material="PETG", assembly.datums=[
+@meta(material="PETG", component.disposition="make",
+      manufacturing.process="FDM", assembly.datums=[
     {"id": "mount", "kind": "point", "origin_mm": [0.0, 0.0, 0.0]},
     {"id": "differential_axis", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]},
@@ -671,6 +915,8 @@ command CHASSIS_SIDE_INTERFACE(side: int) -> solid:
 
 @meta(
     material="PETG",
+    component.disposition="make",
+    manufacturing.process="FDM",
     assembly.datums=[
         {"id": "left_rocker", "kind": "axis",
          "origin_mm": [0.0, 155.0, 0.0], "direction": [0.0, 1.0, 0.0]},
@@ -721,7 +967,8 @@ command DIFFERENTIAL_CARTRIDGE_PREVIEW() -> solid:
                   left_gear, right_gear, left_shaft, right_shaft)
 
 
-@meta(assembly.datums=[
+@meta(material="PETG", component.disposition="make", manufacturing.process="FDM",
+      assembly.datums=[
     {"id": "chassis_pivot", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]},
     {"id": "front_axle", "kind": "axis",
@@ -733,7 +980,8 @@ command LEFT_ROCKER() -> solid:
     emit ROCKER_FINISHED(1)
 
 
-@meta(assembly.datums=[
+@meta(material="PETG", component.disposition="make", manufacturing.process="FDM",
+      assembly.datums=[
     {"id": "chassis_pivot", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]},
     {"id": "front_axle", "kind": "axis",
@@ -747,10 +995,11 @@ command RIGHT_ROCKER() -> solid:
     let assembled: solid = compound(ROCKER_FRONT_COMPONENT(),
                                      ROCKER_REAR_COMPONENT())
     let mirrored: solid = mirror(assembled, vector(0.0, 1.0, 0.0))
-    emit translate(mirrored, 0.0, 23.0, 0.0)
+    emit translate(mirrored, 0.0, 40.0, 0.0)
 
 
-@meta(assembly.datums=[
+@meta(material="PETG", component.disposition="make", manufacturing.process="FDM",
+      assembly.datums=[
     {"id": "rocker_pivot", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]},
     {"id": "middle_axle", "kind": "axis",
@@ -762,7 +1011,8 @@ command LEFT_BOGIE() -> solid:
     emit BOGIE_FINISHED(1)
 
 
-@meta(assembly.datums=[
+@meta(material="PETG", component.disposition="make", manufacturing.process="FDM",
+      assembly.datums=[
     {"id": "rocker_pivot", "kind": "axis",
      "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]},
     {"id": "middle_axle", "kind": "axis",
@@ -771,7 +1021,10 @@ command LEFT_BOGIE() -> solid:
      "origin_mm": [-95.0, 0.0, -40.0], "direction": [0.0, 1.0, 0.0]}
 ])
 command RIGHT_BOGIE() -> solid:
-    emit BOGIE_FINISHED(-1)
+    # Mirror the left-hand finished part so its recessed axle heads remain on
+    # the chassis-facing side; translation alone would leave both pockets on
+    # negative Y.
+    emit mirror(BOGIE_FINISHED(1), vector(0.0, 1.0, 0.0))
 
 
 command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
@@ -787,12 +1040,24 @@ command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
     add_part(rover, RIGHT_WHEEL(), "right_front_wheel")
     add_part(rover, RIGHT_WHEEL(), "right_middle_wheel")
     add_part(rover, RIGHT_WHEEL(), "right_rear_wheel")
-    add_part(rover, LEFT_FRONT_AXLE(), "left_front_shaft")
-    add_part(rover, LEFT_BOGIE_AXLE(), "left_middle_shaft")
-    add_part(rover, LEFT_BOGIE_AXLE(), "left_rear_shaft")
-    add_part(rover, RIGHT_FRONT_AXLE(), "right_front_shaft")
-    add_part(rover, RIGHT_BOGIE_AXLE(), "right_middle_shaft")
-    add_part(rover, RIGHT_BOGIE_AXLE(), "right_rear_shaft")
+    add_part(rover, LEFT_WHEEL_AXLE_SHAFT(), "left_front_shaft")
+    add_part(rover, LEFT_BOGIE_WHEEL_AXLE_SHAFT(), "left_middle_shaft")
+    add_part(rover, LEFT_BOGIE_WHEEL_AXLE_SHAFT(), "left_rear_shaft")
+    add_part(rover, RIGHT_WHEEL_AXLE_SHAFT(), "right_front_shaft")
+    add_part(rover, RIGHT_BOGIE_WHEEL_AXLE_SHAFT(), "right_middle_shaft")
+    add_part(rover, RIGHT_BOGIE_WHEEL_AXLE_SHAFT(), "right_rear_shaft")
+    add_part(rover, LEFT_WHEEL_AXLE_SPACER(), "left_front_spacer")
+    add_part(rover, LEFT_BOGIE_WHEEL_AXLE_SPACER(), "left_middle_spacer")
+    add_part(rover, LEFT_BOGIE_WHEEL_AXLE_SPACER(), "left_rear_spacer")
+    add_part(rover, RIGHT_WHEEL_AXLE_SPACER(), "right_front_spacer")
+    add_part(rover, RIGHT_BOGIE_WHEEL_AXLE_SPACER(), "right_middle_spacer")
+    add_part(rover, RIGHT_BOGIE_WHEEL_AXLE_SPACER(), "right_rear_spacer")
+    add_part(rover, LEFT_WHEEL_AXLE_HARDWARE(), "left_front_axle_hardware")
+    add_part(rover, LEFT_WHEEL_AXLE_HARDWARE(), "left_middle_axle_hardware")
+    add_part(rover, LEFT_WHEEL_AXLE_HARDWARE(), "left_rear_axle_hardware")
+    add_part(rover, RIGHT_WHEEL_AXLE_HARDWARE(), "right_front_axle_hardware")
+    add_part(rover, RIGHT_WHEEL_AXLE_HARDWARE(), "right_middle_axle_hardware")
+    add_part(rover, RIGHT_WHEEL_AXLE_HARDWARE(), "right_rear_axle_hardware")
     add_part(rover, LEFT_WHEEL_BEARINGS(), "left_front_bearings")
     add_part(rover, LEFT_WHEEL_BEARINGS(), "left_middle_bearings")
     add_part(rover, LEFT_WHEEL_BEARINGS(), "left_rear_bearings")
@@ -809,8 +1074,18 @@ command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
              "right_bogie_pivot_bearings")
     add_part(rover, LEFT_ROCKER_PIVOT_SHAFT(), "left_rocker_pivot_shaft")
     add_part(rover, RIGHT_ROCKER_PIVOT_SHAFT(), "right_rocker_pivot_shaft")
+    add_part(rover, LEFT_ROCKER_PIVOT_KEYS(), "left_rocker_pivot_keys")
+    add_part(rover, RIGHT_ROCKER_PIVOT_KEYS(), "right_rocker_pivot_keys")
+    add_part(rover, LEFT_ROCKER_PIVOT_HARDWARE(),
+             "left_rocker_pivot_hardware")
+    add_part(rover, RIGHT_ROCKER_PIVOT_HARDWARE(),
+             "right_rocker_pivot_hardware")
     add_part(rover, LEFT_BOGIE_PIVOT_SHAFT(), "left_bogie_pivot_shaft")
     add_part(rover, RIGHT_BOGIE_PIVOT_SHAFT(), "right_bogie_pivot_shaft")
+    add_part(rover, LEFT_BOGIE_PIVOT_HARDWARE(),
+             "left_bogie_pivot_hardware")
+    add_part(rover, RIGHT_BOGIE_PIVOT_HARDWARE(),
+             "right_bogie_pivot_hardware")
     add_part(rover, LEFT_DIFFERENTIAL_SIDE_GEAR(),
              "left_differential_side_gear")
     add_part(rover, RIGHT_DIFFERENTIAL_SIDE_GEAR(),
@@ -864,6 +1139,30 @@ command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
                    "right_bogie", "middle_axle", "right_middle_shaft", "axle")
     add_named_mate(rover, "right_rear_shaft_mount", "rigid",
                    "right_bogie", "rear_axle", "right_rear_shaft", "axle")
+    add_named_mate(rover, "left_front_spacer_mount", "rigid",
+                   "left_rocker", "front_axle", "left_front_spacer", "axle")
+    add_named_mate(rover, "left_middle_spacer_mount", "rigid",
+                   "left_bogie", "middle_axle", "left_middle_spacer", "axle")
+    add_named_mate(rover, "left_rear_spacer_mount", "rigid",
+                   "left_bogie", "rear_axle", "left_rear_spacer", "axle")
+    add_named_mate(rover, "right_front_spacer_mount", "rigid",
+                   "right_rocker", "front_axle", "right_front_spacer", "axle")
+    add_named_mate(rover, "right_middle_spacer_mount", "rigid",
+                   "right_bogie", "middle_axle", "right_middle_spacer", "axle")
+    add_named_mate(rover, "right_rear_spacer_mount", "rigid",
+                   "right_bogie", "rear_axle", "right_rear_spacer", "axle")
+    add_named_mate(rover, "left_front_axle_hardware_mount", "rigid",
+                   "left_rocker", "front_axle", "left_front_axle_hardware", "axle")
+    add_named_mate(rover, "left_middle_axle_hardware_mount", "rigid",
+                   "left_bogie", "middle_axle", "left_middle_axle_hardware", "axle")
+    add_named_mate(rover, "left_rear_axle_hardware_mount", "rigid",
+                   "left_bogie", "rear_axle", "left_rear_axle_hardware", "axle")
+    add_named_mate(rover, "right_front_axle_hardware_mount", "rigid",
+                   "right_rocker", "front_axle", "right_front_axle_hardware", "axle")
+    add_named_mate(rover, "right_middle_axle_hardware_mount", "rigid",
+                   "right_bogie", "middle_axle", "right_middle_axle_hardware", "axle")
+    add_named_mate(rover, "right_rear_axle_hardware_mount", "rigid",
+                   "right_bogie", "rear_axle", "right_rear_axle_hardware", "axle")
     add_named_mate(rover, "left_front_bearing_mount", "rigid",
                    "left_front_wheel", "axle", "left_front_bearings", "axle")
     add_named_mate(rover, "left_middle_bearing_mount", "rigid",
@@ -894,10 +1193,28 @@ command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
     add_named_mate(rover, "right_rocker_shaft_mount", "rigid",
                    "right_rocker", "chassis_pivot",
                    "right_rocker_pivot_shaft", "axle")
+    add_named_mate(rover, "left_rocker_key_mount", "rigid",
+                   "left_rocker", "chassis_pivot",
+                   "left_rocker_pivot_keys", "axle")
+    add_named_mate(rover, "right_rocker_key_mount", "rigid",
+                   "right_rocker", "chassis_pivot",
+                   "right_rocker_pivot_keys", "axle")
+    add_named_mate(rover, "left_rocker_hardware_mount", "rigid",
+                   "left_rocker", "chassis_pivot",
+                   "left_rocker_pivot_hardware", "axle")
+    add_named_mate(rover, "right_rocker_hardware_mount", "rigid",
+                   "right_rocker", "chassis_pivot",
+                   "right_rocker_pivot_hardware", "axle")
     add_named_mate(rover, "left_bogie_shaft_mount", "rigid",
                    "left_rocker", "bogie_pivot", "left_bogie_pivot_shaft", "axle")
     add_named_mate(rover, "right_bogie_shaft_mount", "rigid",
                    "right_rocker", "bogie_pivot", "right_bogie_pivot_shaft", "axle")
+    add_named_mate(rover, "left_bogie_hardware_mount", "rigid",
+                   "left_rocker", "bogie_pivot",
+                   "left_bogie_pivot_hardware", "axle")
+    add_named_mate(rover, "right_bogie_hardware_mount", "rigid",
+                   "right_rocker", "bogie_pivot",
+                   "right_bogie_pivot_hardware", "axle")
     add_named_mate(rover, "left_side_gear_mount", "rigid",
                    "left_rocker", "chassis_pivot",
                    "left_differential_side_gear", "axis")

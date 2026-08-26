@@ -15,6 +15,7 @@ import pytest
 
 from yapcad.brep import has_brep_data, occ_available
 from yapcad.dsl import compile_and_run
+from yapcad.geom3d import solidbbox
 from yaprover.kinematics.clearance import (
     audit_positioned_breps,
     canonical_pair,
@@ -39,6 +40,11 @@ WHEELS = (
 )
 PRINTED_LINKS = ("chassis", "left_rocker", "right_rocker",
                  "left_bogie", "right_bogie")
+MOVING_AXLE_PARTS = tuple(
+    instance for _, instance in PART_INSTANCES
+    if instance.endswith(("_shaft", "_spacer", "_hardware",
+                          "_keys", "_bearings"))
+)
 
 
 def _intended_wheel_contacts(part_names):
@@ -71,15 +77,85 @@ def _intended_differential_contacts(part_names):
     return pairs
 
 
+def _intended_key_contacts(part_names):
+    """Allow the two parallel keys to bear on their keyed rocker shafts."""
+    names = set(part_names)
+    return {
+        canonical_pair(f"{side}_rocker_pivot_shaft",
+                       f"{side}_rocker_pivot_keys")
+        for side in ("left", "right")
+        if f"{side}_rocker_pivot_shaft" in names
+        and f"{side}_rocker_pivot_keys" in names
+    }
+
+
 def _intended_contacts(part_names):
     return (_intended_wheel_contacts(part_names) |
-            _intended_differential_contacts(part_names))
+            _intended_differential_contacts(part_names) |
+            _intended_key_contacts(part_names))
 
 
 def _wheel_clearance_requirements():
     return {
         canonical_pair(wheel, link): 5.0
         for wheel in WHEELS for link in PRINTED_LINKS
+    }
+
+
+def _foreign_wheel_hardware_requirements():
+    """Require every wheel to clear every other station's axle stack."""
+    requirements = {}
+    for wheel in WHEELS:
+        station = wheel.removesuffix("_wheel")
+        for part in MOVING_AXLE_PARTS:
+            if part.startswith(station + "_"):
+                continue
+            requirements[canonical_pair(wheel, part)] = 5.0
+    return requirements
+
+
+def _chassis_hardware_pairs():
+    """All modeled axle-stack parts must remain out of chassis material."""
+    return {
+        canonical_pair("chassis", part) for part in MOVING_AXLE_PARTS
+    }
+
+
+def _bbox_corners(solid):
+    lower, upper = (np.asarray(point[:3]) for point in solidbbox(solid))
+    return np.asarray([
+        [x, y, z, 1.0]
+        for x in (lower[0], upper[0])
+        for y in (lower[1], upper[1])
+        for z in (lower[2], upper[2])
+    ])
+
+
+def _transformed_bounds(corners, transform):
+    points = (transform @ corners.T).T[:, :3]
+    return points.min(axis=0), points.max(axis=0)
+
+
+def _aabb_distance(first, second):
+    first_min, first_max = first
+    second_min, second_max = second
+    separation = np.maximum(
+        0.0, np.maximum(first_min - second_max, second_min - first_max)
+    )
+    return float(np.linalg.norm(separation))
+
+
+def _broad_phase_candidates(local_corners, transforms, pairs, requirements):
+    """Promote only pairs whose transformed AABBs cannot prove clearance."""
+    names = {name for pair in pairs for name in pair}
+    bounds = {
+        name: _transformed_bounds(local_corners[name], transforms[name])
+        for name in names
+    }
+    return {
+        pair for pair in pairs
+        if _aabb_distance(bounds[pair[0]], bounds[pair[1]])
+        <= requirements.get(pair, 0.0) + 1e-9
     }
 
 
@@ -143,11 +219,40 @@ def test_differential_allowlist_contains_only_the_four_tooth_meshes():
     ) not in allowed
 
 
+def test_split_parallel_keys_only_allow_contact_with_their_own_shafts():
+    names = {
+        "left_rocker_pivot_shaft", "left_rocker_pivot_keys",
+        "right_rocker_pivot_shaft", "right_rocker_pivot_keys",
+    }
+    assert _intended_key_contacts(names) == canonical_pairs({
+        ("left_rocker_pivot_shaft", "left_rocker_pivot_keys"),
+        ("right_rocker_pivot_shaft", "right_rocker_pivot_keys"),
+    })
+
+
 def test_clearance_policy_covers_every_wheel_against_links_and_chassis():
     requirements = _wheel_clearance_requirements()
 
     assert len(requirements) == len(WHEELS) * len(PRINTED_LINKS)
     assert all(clearance == 5.0 for clearance in requirements.values())
+
+
+def test_rom_policy_covers_foreign_hardware_and_every_chassis_axle_pair():
+    requirements = _foreign_wheel_hardware_requirements()
+    chassis_pairs = _chassis_hardware_pairs()
+
+    assert requirements
+    assert chassis_pairs == {
+        canonical_pair("chassis", part) for part in MOVING_AXLE_PARTS
+    }
+    for wheel in WHEELS:
+        station = wheel.removesuffix("_wheel")
+        assert canonical_pair(wheel, f"{station}_shaft") not in requirements
+        assert all(
+            requirements[canonical_pair(wheel, part)] == 5.0
+            for part in MOVING_AXLE_PARTS
+            if not part.startswith(station + "_")
+        )
 
 
 @pytest.fixture(scope="module")
@@ -196,12 +301,18 @@ def test_flat_wheel_to_link_and_chassis_clearance_is_at_least_5mm(occ_rover):
 @pytest.mark.requires_occ
 @pytest.mark.expensive_geometry
 def test_joint_range_sweep_uses_at_most_two_degree_steps(occ_rover):
-    """Sweep representative one-DOF sections rather than the full 4-D grid."""
+    """Sweep every joint range with broad-phase promotion to exact BREP."""
     sweeps = (
         ("left_rocker_pivot", np.arange(-18.0, 18.01, 2.0)),
         ("left_bogie_pivot", np.arange(-35.0, 38.01, 2.0)),
         ("right_bogie_pivot", np.arange(-35.0, 38.01, 2.0)),
     )
+    foreign_hardware_requirements = _foreign_wheel_hardware_requirements()
+    chassis_hardware_pairs = _chassis_hardware_pairs()
+    local_corners = {
+        name: _bbox_corners(occ_rover.get_part_geometry(name))
+        for name in occ_rover.parts
+    }
     checked = 0
     for joint, angles in sweeps:
         assert np.max(np.diff(angles)) <= 2.0
@@ -237,6 +348,9 @@ def test_joint_range_sweep_uses_at_most_two_degree_steps(occ_rover):
                 (f"{side}_bogie", f"{side}_rocker"),
                 (f"{side}_bogie", "chassis"),
             })
+        requirements.update(foreign_hardware_requirements)
+        collision_pairs.update(chassis_hardware_pairs)
+        collision_pairs.update(foreign_hardware_requirements)
         for angle in angles:
             result = occ_rover.solve("chassis", {
                 "left_rocker_pivot": 0.0,
@@ -245,8 +359,16 @@ def test_joint_range_sweep_uses_at_most_two_degree_steps(occ_rover):
                 joint: math.radians(float(angle)),
             })
             assert result.success, (joint, angle, result.errors)
+            candidate_pairs = _broad_phase_candidates(
+                local_corners, result.transforms,
+                collision_pairs, requirements,
+            )
+            candidate_requirements = {
+                pair: clearance for pair, clearance in requirements.items()
+                if pair in candidate_pairs
+            }
             needed_parts = {
-                name for pair in collision_pairs | set(requirements)
+                name for pair in candidate_pairs
                 for name in pair
             }
             positioned = {
@@ -256,8 +378,8 @@ def test_joint_range_sweep_uses_at_most_two_degree_steps(occ_rover):
             report = audit_positioned_breps(
                 positioned,
                 intended_contacts=_intended_contacts(positioned),
-                minimum_clearances=requirements,
-                pairs=collision_pairs,
+                minimum_clearances=candidate_requirements,
+                pairs=candidate_pairs,
             )
             assert report.success, (joint, angle, report)
             checked += 1
