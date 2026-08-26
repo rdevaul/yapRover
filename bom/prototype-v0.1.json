@@ -1,0 +1,234 @@
+{
+  "schema": "yaprover-procurement-v0.1",
+  "revision": "A",
+  "notes": [
+    "Quantities are for one passive six-wheel rover and include the stated prototype spares.",
+    "Verify all critical dimensions against the linked supplier drawing before ordering.",
+    "The two long wheel-axle screw sizes are manufacturer-neutral DIN 7984 requirements because supplier stock changes frequently."
+  ],
+  "purchaseLines": [
+    {
+      "id": "BRG-608-2RS",
+      "description": "608-2RS sealed bearing, 8 x 22 x 7 mm",
+      "supplier": "McMaster-Carr",
+      "sku": "2349K744",
+      "url": "https://www.mcmaster.com/2349K744/",
+      "unit": "each",
+      "packQuantity": 1,
+      "spares": 2,
+      "componentFactors": {
+        "bearing_608_wheel_pair": 1,
+        "right_front_bearings": 1,
+        "right_middle_bearings": 1,
+        "right_rear_bearings": 1,
+        "left_chassis_pivot_bearings": 1,
+        "right_chassis_pivot_bearings": 1,
+        "left_bogie_pivot_bearings": 1,
+        "right_bogie_pivot_bearings": 1,
+        "differential_carrier_bearings": 1
+      }
+    },
+    {
+      "id": "AXLE-M8X80-LP",
+      "description": "DIN 7984 low-profile socket screw, M8 x 1.25 x 80 mm, class 8.8 or stronger",
+      "supplier": "Metric fastener supplier",
+      "sku": "DIN7984-M8X80-8.8",
+      "url": "https://www.mcmaster.com/products/din-7984-socket-head-cap-screws/",
+      "unit": "each",
+      "packQuantity": 1,
+      "spares": 1,
+      "criticalDimensions": "Head <=13.2 mm diameter and <=4.9 mm high; confirm thread runout does not bear on the inboard 608 inner race.",
+      "componentFactors": {
+        "wheel_axle_m8x80_low_head": 1,
+        "wheel_axle_m8x80_low_head_right": 1
+      }
+    },
+    {
+      "id": "AXLE-M8X65-LP",
+      "description": "DIN 7984 low-profile socket screw, M8 x 1.25 x 65 mm, class 8.8 or stronger",
+      "supplier": "Metric fastener supplier",
+      "sku": "DIN7984-M8X65-8.8",
+      "url": "https://www.mcmaster.com/products/din-7984-socket-head-cap-screws/",
+      "unit": "each",
+      "packQuantity": 1,
+      "spares": 2,
+      "criticalDimensions": "Head <=13.2 mm diameter and <=4.9 mm high; confirm thread runout does not bear on the inboard 608 inner race.",
+      "componentFactors": {
+        "bogie_wheel_axle_m8x65_low_head": 1,
+        "bogie_wheel_axle_m8x65_low_head_right": 1
+      }
+    },
+    {
+      "id": "WSH-M8-DIN125",
+      "description": "M8 zinc-plated flat washer, 8.4 mm ID x 16 mm OD",
+      "supplier": "McMaster-Carr",
+      "sku": "93413A160",
+      "url": "https://www.mcmaster.com/93413A160/",
+      "unit": "each",
+      "packQuantity": 5,
+      "spares": 3,
+      "componentFactors": {
+        "wheel_axle_retention_m8": 1,
+        "wheel_axle_retention_m8_right": 1,
+        "left_rocker_pivot_hardware": 1,
+        "right_rocker_pivot_hardware": 1,
+        "left_bogie_pivot_hardware": 2,
+        "right_bogie_pivot_hardware": 2
+      }
+    },
+    {
+      "id": "NUT-M8-NYLOC-LOW",
+      "description": "M8 x 1.25 thin-profile zinc-plated nylon-insert locknut",
+      "supplier": "McMaster-Carr",
+      "sku": "90453A115",
+      "url": "https://www.mcmaster.com/90453A115/",
+      "unit": "each",
+      "packQuantity": 5,
+      "spares": 2,
+      "componentFactors": {
+        "wheel_axle_retention_m8": 1,
+        "wheel_axle_retention_m8_right": 1,
+        "left_bogie_pivot_hardware": 2,
+        "right_bogie_pivot_hardware": 2
+      }
+    },
+    {
+      "id": "RING-8MM-PUSH",
+      "description": "8 mm push-on external retaining ring, 13 mm OD",
+      "supplier": "McMaster-Carr",
+      "sku": "92133A109",
+      "url": "https://www.mcmaster.com/92133A109/",
+      "unit": "each",
+      "packQuantity": 100,
+      "spares": 4,
+      "componentFactors": {
+        "left_rocker_pivot_hardware": 2,
+        "right_rocker_pivot_hardware": 2
+      }
+    },
+    {
+      "id": "SCR-M4X20",
+      "description": "M4 x 0.7 x 20 mm socket-head screw, zinc-plated steel",
+      "supplier": "Metric fastener supplier",
+      "sku": "ISO4762-M4X20-8.8",
+      "url": "https://www.mcmaster.com/products/socket-head-screws/thread-size~m4/",
+      "unit": "each",
+      "packQuantity": 10,
+      "spares": 2,
+      "componentFactors": {
+        "differential_cradle_fasteners": 1
+      }
+    },
+    {
+      "id": "NUT-M4-NYLOC",
+      "description": "M4 x 0.7 thin-profile nylon-insert locknut",
+      "supplier": "McMaster-Carr",
+      "sku": "90453A112",
+      "url": "https://www.mcmaster.com/90453A112/",
+      "unit": "each",
+      "packQuantity": 25,
+      "spares": 2,
+      "componentFactors": {
+        "differential_cradle_fasteners": 1
+      }
+    },
+    {
+      "id": "PIN-DIFF-8X72",
+      "description": "Differential cross-pin, smooth 7.9-8.0 mm shoulder x 72 mm with retained ends",
+      "supplier": "Machine from shaft stock or metric shoulder-fastener supplier",
+      "sku": "CUSTOM-8X72",
+      "url": "",
+      "unit": "each",
+      "packQuantity": 1,
+      "spares": 1,
+      "criticalDimensions": "Smooth bearing length 72.0 +/-0.1 mm; diameter 7.90 +/-0.03 mm; retention must clamp the carrier towers only.",
+      "componentFactors": {
+        "differential_cross_pin": 1
+      }
+    },
+    {
+      "id": "WSH-M8-LOWFRICTION",
+      "description": "Low-friction M8 thrust washer, 8.3-8.5 mm ID x 16 mm OD x 1.0 mm",
+      "supplier": "Industrial plastics supplier",
+      "sku": "PTFE-M8-16X1",
+      "url": "https://www.mcmaster.com/products/plastic-washers/",
+      "unit": "each",
+      "packQuantity": 10,
+      "spares": 2,
+      "criticalDimensions": "Do not substitute a washer thicker than 1.05 mm without re-shimming the differential.",
+      "componentFactors": {
+        "differential_planet_thrust_washers": 1
+      }
+    },
+    {
+      "id": "FIL-PETG",
+      "description": "PET-G filament, 1.75 mm, structurally consistent production lot",
+      "supplier": "Filament supplier",
+      "sku": "PETG-1.75-1KG",
+      "url": "",
+      "unit": "1 kg spool",
+      "packQuantity": 1,
+      "fixedRequired": 3,
+      "spares": 0,
+      "componentFactors": {}
+    },
+    {
+      "id": "FIL-TPU95A",
+      "description": "TPU 95A filament for replaceable suspension bumpers",
+      "supplier": "Filament supplier",
+      "sku": "TPU95A-1.75-0.5KG",
+      "url": "",
+      "unit": "0.5 kg spool",
+      "packQuantity": 1,
+      "fixedRequired": 1,
+      "spares": 0,
+      "componentFactors": {}
+    }
+  ],
+  "stockLines": [
+    {
+      "id": "STOCK-SHAFT-8MM",
+      "description": "8 mm diameter machinable steel shaft stock",
+      "supplier": "McMaster-Carr",
+      "sku": "8MM-SHAFT-STOCK",
+      "url": "https://www.mcmaster.com/products/shafts/diameter~8-mm/",
+      "orderLengthMm": 600,
+      "kerfMm": 2,
+      "cuts": {
+        "left_rocker_pivot_shaft": 106.5,
+        "right_rocker_pivot_shaft": 106.5,
+        "left_bogie_pivot_shaft": 51.5,
+        "right_bogie_pivot_shaft": 51.5
+      }
+    },
+    {
+      "id": "STOCK-SPACER-13X8P3",
+      "description": "13 mm OD x 8.3 mm ID steel or aluminum spacer tube",
+      "supplier": "Metric tube supplier",
+      "sku": "TUBE-13X8.3",
+      "url": "",
+      "orderLengthMm": 300,
+      "kerfMm": 1,
+      "cuts": {
+        "wheel_spacer_13x8p3x21p4": 21.4,
+        "wheel_spacer_13x8p3x21p4_right": 21.4,
+        "bogie_wheel_spacer_4p4mm": 4.4,
+        "bogie_wheel_spacer_4p4mm_right": 4.4
+      }
+    },
+    {
+      "id": "STOCK-KEY-2MM",
+      "description": "DIN 6880 undersized 2 x 2 mm carbon-steel key stock",
+      "supplier": "McMaster-Carr",
+      "sku": "92288A710",
+      "url": "https://www.mcmaster.com/92288A710/",
+      "orderLengthMm": 305,
+      "kerfMm": 1,
+      "piecePatternMm": [12.5, 8.5],
+      "componentIds": [
+        "left_rocker_pivot_keys",
+        "right_rocker_pivot_keys"
+      ]
+    }
+  ]
+}

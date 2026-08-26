@@ -120,13 +120,107 @@ command ARM_FILLETED(
     emit translate(aimed, center_x, center_y, center_z)
 
 
+command Y_AXIS_CYLINDER(
+    radius: float, length: float,
+    center_x: float, center_y: float, center_z: float
+) -> solid:
+    let centered: solid = translate(cylinder(radius, length),
+                                      0.0, 0.0, -length / 2.0)
+    emit translate(rotate(centered, -90.0, 0.0, 0.0),
+                   center_x, center_y, center_z)
+
+
+command LIMIT_CONTACT_TAB(center_y: float) -> solid:
+    # A compact PET-G radial tongue with a rounded contact nose.  The nose
+    # center follows a 60 mm radius above its joint axis, away from both
+    # downward-sloping suspension arms.
+    let bridge: solid = translate(box(6.0, 16.0, 45.0),
+                                  0.0, center_y, 37.5)
+    let nose: solid = Y_AXIS_CYLINDER(3.0, 16.0,
+                                      0.0, center_y, 60.0)
+    emit union(bridge, nose)
+
+
+command ROCKER_LIMIT_SOCKET_CUTTERS() -> solid:
+    # Press-fit sockets through both chassis side walls. The bumper centers
+    # flank an upward-pointing moving nose and become tangent at the solver's
+    # +/-18 degree rocker limits.
+    let upper_left: solid = Y_AXIS_CYLINDER(2.65, 6.0,
+                                            -25.06, 96.5, 54.52)
+    let lower_left: solid = Y_AXIS_CYLINDER(2.65, 6.0,
+                                            25.06, 96.5, 54.52)
+    let left: solid = compound(upper_left, lower_left)
+    emit compound(left, mirror(left, vector(0.0, 1.0, 0.0)))
+
+
+command LEFT_ROCKER_LIMIT_BUMPER_GEOMETRY() -> solid:
+    let upper_pad: solid = Y_AXIS_CYLINDER(4.0, 16.0,
+                                           -25.06, -48.5, 54.52)
+    let lower_pad: solid = Y_AXIS_CYLINDER(4.0, 16.0,
+                                           25.06, -48.5, 54.52)
+    let upper_stem: solid = Y_AXIS_CYLINDER(2.55, 5.0,
+                                            -25.06, -59.0, 54.52)
+    let lower_stem: solid = Y_AXIS_CYLINDER(2.55, 5.0,
+                                            25.06, -59.0, 54.52)
+    emit compound(union(upper_pad, upper_stem),
+                  union(lower_pad, lower_stem))
+
+
+command BOGIE_LIMIT_SOCKET_CUTTERS() -> solid:
+    # Coordinates are in the unsifted rocker component frame. After the
+    # rocker is moved into its lateral band these sockets accept stems from
+    # the bumper pair that is rigidly located at the bogie-pivot datum.
+    let upper: solid = Y_AXIS_CYLINDER(2.65, 7.0,
+                                       -134.85, -3.0, 9.85)
+    let lower: solid = Y_AXIS_CYLINDER(2.65, 7.0,
+                                       -52.80, -3.0, 7.65)
+    emit compound(upper, lower)
+
+
+command BOGIE_LIMIT_MOUNT_EARS() -> solid:
+    # PET-G ears carry the replaceable pads out beyond the pivot boss. They
+    # stay in the rocker band; only the TPU pads occupy the bogie band.
+    let lower_raw: solid = translate(box(45.0, 16.0, 8.0),
+                                      37.5, -8.5, 0.0)
+    let lower: solid = translate(rotate(lower_raw, 0.0, -45.31, 0.0),
+                                  -95.0, 0.0, -35.0)
+    let upper_raw: solid = translate(box(45.0, 16.0, 8.0),
+                                      37.5, -8.5, 0.0)
+    let upper: solid = translate(rotate(upper_raw, 0.0, -131.69, 0.0),
+                                  -95.0, 0.0, -35.0)
+    emit union(lower, upper)
+
+
+command LEFT_BOGIE_UPPER_LIMIT_BUMPER_GEOMETRY() -> solid:
+    let upper_pad: solid = Y_AXIS_CYLINDER(4.0, 16.0,
+                                           -39.85, -31.5, 44.85)
+    let upper_stem: solid = Y_AXIS_CYLINDER(2.55, 7.0,
+                                            -39.85, -43.0, 44.85)
+    emit union(upper_pad, upper_stem)
+
+
+command LEFT_BOGIE_LOWER_LIMIT_BUMPER_GEOMETRY() -> solid:
+    let lower_pad: solid = Y_AXIS_CYLINDER(4.0, 16.0,
+                                           42.20, -31.5, 42.65)
+    let lower_stem: solid = Y_AXIS_CYLINDER(2.55, 7.0,
+                                            42.20, -43.0, 42.65)
+    emit union(lower_pad, lower_stem)
+
+
+command LEFT_BOGIE_LIMIT_BUMPER_GEOMETRY() -> solid:
+    # The unequal +/- limit angles are intentional: -35 and +38 degrees.
+    emit compound(LEFT_BOGIE_UPPER_LIMIT_BUMPER_GEOMETRY(),
+                  LEFT_BOGIE_LOWER_LIMIT_BUMPER_GEOMETRY())
+
+
 command ROCKER_FRONT_COMPONENT() -> solid:
     # C -> F = (+190, -75) mm.  This 204.3 mm component fits a 220 mm bed.
     let arm: solid = ARM_FILLETED(204.266982, 21.540976,
                                   95.0, -8.5, -37.5)
     let center: solid = AXIS_BOSS_KEYED_HALF(0.0, -12.5, 0.0)
     let front: solid = AXIS_BOSS_WHEEL_AXLE(190.0, -8.5, -75.0)
-    let joined: solid = union(arm, center, front)
+    let joined: solid = union(arm, center, front,
+                              LIMIT_CONTACT_TAB(-8.5))
     emit difference(joined, AXIS_KEYED_CUTTERS(0.0, -8.5, 0.0),
                     AXIS_BOSS_HALF_BLANK(0.0, -4.5, 0.0),
                     AXIS_BORE_CUTTERS(190.0, -8.5, -75.0),
@@ -140,10 +234,12 @@ command ROCKER_REAR_COMPONENT() -> solid:
                                   -47.5, -8.5, -17.5)
     let center: solid = AXIS_BOSS_KEYED_HALF(0.0, -4.5, 0.0)
     let bogie: solid = AXIS_BOSS_BORE(-95.0, -8.5, -35.0)
-    let joined: solid = union(arm, center, bogie)
+    let joined: solid = union(arm, center, bogie,
+                              BOGIE_LIMIT_MOUNT_EARS())
     emit difference(joined, AXIS_KEYED_CUTTERS(0.0, -4.5, 0.0),
                     AXIS_BOSS_HALF_BLANK(0.0, -12.5, 0.0),
                     AXIS_OUTBOARD_RETENTION_CUTTER(0.0, -8.5, 0.0),
+                    BOGIE_LIMIT_SOCKET_CUTTERS(),
                     AXIS_BORE_CUTTERS(-95.0, -8.5, -35.0))
 
 
@@ -165,7 +261,8 @@ command BOGIE_FINISHED(side: int) -> solid:
     let pivot: solid = AXIS_BOSS_DUAL_608(0.0, 0.0, 0.0)
     let middle: solid = AXIS_BOSS_WHEEL_AXLE(95.0, 0.0, -40.0)
     let rear: solid = AXIS_BOSS_WHEEL_AXLE(-95.0, 0.0, -40.0)
-    let joined: solid = union(middle_arm, rear_arm, pivot, middle, rear)
+    let joined: solid = union(middle_arm, rear_arm, pivot, middle, rear,
+                              LIMIT_CONTACT_TAB(0.0))
     let assembled: solid = difference(
         joined,
         AXIS_DUAL_608_CUTTERS(0.0, 0.0, 0.0),
@@ -881,6 +978,7 @@ command CHASSIS_CUT_TUB() -> solid:
                     CHASSIS_PIVOT_CUTTERS(1),
                     CHASSIS_PIVOT_CUTTERS(-1),
                     DIFFERENTIAL_FLOOR_CLEARANCE(),
+                    ROCKER_LIMIT_SOCKET_CUTTERS(),
                     DIFFERENTIAL_CRADLE_FASTENER_CUTTERS())
 
 
@@ -897,8 +995,10 @@ command CHASSIS_REAR_SEGMENT() -> solid:
 
 
 command CHASSIS_SPLICE_KEYS() -> solid:
+    # Keep the keys flush with the outer wall (y=+/-97.5) so the rocker
+    # limit tongue retains the designed 1 mm nominal lateral clearance.
     let left_low: solid = fillet(translate(box(30.0, 8.0, 12.0),
-                                           0.0, 95.0, 25.0), 2.0)
+                                           0.0, 93.5, 25.0), 2.0)
     let left_high: solid = translate(left_low, 0.0, 0.0, 30.0)
     let right_low: solid = mirror(left_low, vector(0.0, 1.0, 0.0))
     let right_high: solid = mirror(left_high, vector(0.0, 1.0, 0.0))
@@ -936,6 +1036,56 @@ command CHASSIS_FINISHED() -> solid:
     emit compound(CHASSIS_FRONT_SEGMENT(), CHASSIS_REAR_SEGMENT(),
                   CHASSIS_SIDE_INTERFACE(1), CHASSIS_SIDE_INTERFACE(-1),
                   CHASSIS_SPLICE_KEYS())
+
+
+@meta(material="TPU 95A", component.id="left_rocker_limit_bumper_pair",
+      component.name="Left rocker replaceable limit-bumper pair",
+      component.disposition="make", manufacturing.process="FDM",
+      manufacturing.instructions="Print solid in TPU 95A; press stems into chassis sockets",
+      assembly.datums=[
+    {"id": "joint_axis", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command LEFT_ROCKER_LIMIT_BUMPERS() -> solid:
+    emit LEFT_ROCKER_LIMIT_BUMPER_GEOMETRY()
+
+
+@meta(material="TPU 95A", component.id="right_rocker_limit_bumper_pair",
+      component.name="Right rocker replaceable limit-bumper pair",
+      component.disposition="make", manufacturing.process="FDM",
+      manufacturing.instructions="Print solid in TPU 95A; press stems into chassis sockets",
+      assembly.datums=[
+    {"id": "joint_axis", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command RIGHT_ROCKER_LIMIT_BUMPERS() -> solid:
+    emit mirror(LEFT_ROCKER_LIMIT_BUMPER_GEOMETRY(),
+                vector(0.0, 1.0, 0.0))
+
+
+@meta(material="TPU 95A", component.id="left_bogie_limit_bumper_pair",
+      component.name="Left bogie replaceable limit-bumper pair",
+      component.disposition="make", manufacturing.process="FDM",
+      manufacturing.instructions="Print solid in TPU 95A; press stems into rocker sockets",
+      assembly.datums=[
+    {"id": "joint_axis", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command LEFT_BOGIE_LIMIT_BUMPERS() -> solid:
+    emit LEFT_BOGIE_LIMIT_BUMPER_GEOMETRY()
+
+
+@meta(material="TPU 95A", component.id="right_bogie_limit_bumper_pair",
+      component.name="Right bogie replaceable limit-bumper pair",
+      component.disposition="make", manufacturing.process="FDM",
+      manufacturing.instructions="Print solid in TPU 95A; press stems into rocker sockets",
+      assembly.datums=[
+    {"id": "joint_axis", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command RIGHT_BOGIE_LIMIT_BUMPERS() -> solid:
+    emit mirror(LEFT_BOGIE_LIMIT_BUMPER_GEOMETRY(),
+                vector(0.0, 1.0, 0.0))
 
 
 command DIFFERENTIAL_CARTRIDGE_PREVIEW() -> solid:
@@ -1034,6 +1184,14 @@ command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
     add_part(rover, RIGHT_ROCKER(), "right_rocker")
     add_part(rover, LEFT_BOGIE(), "left_bogie")
     add_part(rover, RIGHT_BOGIE(), "right_bogie")
+    add_part(rover, LEFT_ROCKER_LIMIT_BUMPERS(),
+             "left_rocker_limit_bumpers")
+    add_part(rover, RIGHT_ROCKER_LIMIT_BUMPERS(),
+             "right_rocker_limit_bumpers")
+    add_part(rover, LEFT_BOGIE_LIMIT_BUMPERS(),
+             "left_bogie_limit_bumpers")
+    add_part(rover, RIGHT_BOGIE_LIMIT_BUMPERS(),
+             "right_bogie_limit_bumpers")
     add_part(rover, LEFT_WHEEL(), "left_front_wheel")
     add_part(rover, LEFT_WHEEL(), "left_middle_wheel")
     add_part(rover, LEFT_WHEEL(), "left_rear_wheel")
@@ -1124,6 +1282,22 @@ command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
                    "right_bogie", "middle_axle", "right_middle_wheel", "axle")
     add_named_mate(rover, "right_rear_axle", "revolute",
                    "right_bogie", "rear_axle", "right_rear_wheel", "axle")
+
+    # TPU bumper pairs are fixed to each joint's parent. The PET-G contact
+    # noses are integral with the rotating child and meet the pads only at
+    # the declared joint limits.
+    add_named_mate(rover, "left_rocker_limit_bumper_mount", "rigid",
+                   "chassis", "left_rocker",
+                   "left_rocker_limit_bumpers", "joint_axis")
+    add_named_mate(rover, "right_rocker_limit_bumper_mount", "rigid",
+                   "chassis", "right_rocker",
+                   "right_rocker_limit_bumpers", "joint_axis")
+    add_named_mate(rover, "left_bogie_limit_bumper_mount", "rigid",
+                   "left_rocker", "bogie_pivot",
+                   "left_bogie_limit_bumpers", "joint_axis")
+    add_named_mate(rover, "right_bogie_limit_bumper_mount", "rigid",
+                   "right_rocker", "bogie_pivot",
+                   "right_bogie_limit_bumpers", "joint_axis")
 
     # Shafts and spacers are fixed to their supporting links. Bearing packs
     # are fixed to the wheel hubs, so their outer races follow wheel rotation.

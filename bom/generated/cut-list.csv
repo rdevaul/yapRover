@@ -1,0 +1,13 @@
+stock_id,supplier,sku,piece,quantity,finished_length_mm,tolerance_mm,process,url
+STOCK-SHAFT-8MM,McMaster-Carr,8MM-SHAFT-STOCK,left_rocker_pivot_shaft,1,106.5,0.1,"saw, deburr, face square",https://www.mcmaster.com/products/shafts/diameter~8-mm/
+STOCK-SHAFT-8MM,McMaster-Carr,8MM-SHAFT-STOCK,right_rocker_pivot_shaft,1,106.5,0.1,"saw, deburr, face square",https://www.mcmaster.com/products/shafts/diameter~8-mm/
+STOCK-SHAFT-8MM,McMaster-Carr,8MM-SHAFT-STOCK,left_bogie_pivot_shaft,1,51.5,0.1,"saw, deburr, face square",https://www.mcmaster.com/products/shafts/diameter~8-mm/
+STOCK-SHAFT-8MM,McMaster-Carr,8MM-SHAFT-STOCK,right_bogie_pivot_shaft,1,51.5,0.1,"saw, deburr, face square",https://www.mcmaster.com/products/shafts/diameter~8-mm/
+STOCK-SPACER-13X8P3,Metric tube supplier,TUBE-13X8.3,wheel_spacer_13x8p3x21p4,1,21.4,0.1,"saw, deburr, face square",
+STOCK-SPACER-13X8P3,Metric tube supplier,TUBE-13X8.3,wheel_spacer_13x8p3x21p4_right,1,21.4,0.1,"saw, deburr, face square",
+STOCK-SPACER-13X8P3,Metric tube supplier,TUBE-13X8.3,bogie_wheel_spacer_4p4mm,2,4.4,0.1,"saw, deburr, face square",
+STOCK-SPACER-13X8P3,Metric tube supplier,TUBE-13X8.3,bogie_wheel_spacer_4p4mm_right,2,4.4,0.1,"saw, deburr, face square",
+STOCK-KEY-2MM,McMaster-Carr,92288A710,left_rocker_pivot_keys_1,1,12.5,0.1,"saw, deburr, face square",https://www.mcmaster.com/92288A710/
+STOCK-KEY-2MM,McMaster-Carr,92288A710,left_rocker_pivot_keys_2,1,8.5,0.1,"saw, deburr, face square",https://www.mcmaster.com/92288A710/
+STOCK-KEY-2MM,McMaster-Carr,92288A710,right_rocker_pivot_keys_1,1,12.5,0.1,"saw, deburr, face square",https://www.mcmaster.com/92288A710/
+STOCK-KEY-2MM,McMaster-Carr,92288A710,right_rocker_pivot_keys_2,1,8.5,0.1,"saw, deburr, face square",https://www.mcmaster.com/92288A710/

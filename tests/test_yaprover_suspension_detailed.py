@@ -39,6 +39,10 @@ PART_INSTANCES = (
     ("RIGHT_ROCKER", "right_rocker"),
     ("LEFT_BOGIE", "left_bogie"),
     ("RIGHT_BOGIE", "right_bogie"),
+    ("LEFT_ROCKER_LIMIT_BUMPERS", "left_rocker_limit_bumpers"),
+    ("RIGHT_ROCKER_LIMIT_BUMPERS", "right_rocker_limit_bumpers"),
+    ("LEFT_BOGIE_LIMIT_BUMPERS", "left_bogie_limit_bumpers"),
+    ("RIGHT_BOGIE_LIMIT_BUMPERS", "right_bogie_limit_bumpers"),
     ("LEFT_WHEEL", "left_front_wheel"),
     ("LEFT_WHEEL", "left_middle_wheel"),
     ("LEFT_WHEEL", "left_rear_wheel"),
@@ -103,6 +107,14 @@ DIFFERENTIAL_MESHES = tuple(
     for position in ("front", "rear") for side in ("left", "right")
 )
 HARDWARE_MATES = (
+    ("left_rocker_limit_bumper_mount", "chassis",
+     "left_rocker_limit_bumpers", "left_rocker", "joint_axis"),
+    ("right_rocker_limit_bumper_mount", "chassis",
+     "right_rocker_limit_bumpers", "right_rocker", "joint_axis"),
+    ("left_bogie_limit_bumper_mount", "left_rocker",
+     "left_bogie_limit_bumpers", "bogie_pivot", "joint_axis"),
+    ("right_bogie_limit_bumper_mount", "right_rocker",
+     "right_bogie_limit_bumpers", "bogie_pivot", "joint_axis"),
     ("left_front_shaft_mount", "left_rocker", "left_front_shaft",
      "front_axle", "axle"),
     ("left_middle_shaft_mount", "left_bogie", "left_middle_shaft",
@@ -315,8 +327,8 @@ def test_detailed_geometry_retains_proven_datum_graph(detailed_solids):
     result = assembly.solve("chassis", {"left_rocker_pivot": math.radians(12.0)})
 
     assert result.success, result.errors
-    assert len(assembly.parts) == 58
-    assert len(assembly.mates) == 57
+    assert len(assembly.parts) == 62
+    assert len(assembly.mates) == 61
     assert assembly._joint_values["right_rocker_pivot"] == pytest.approx(
         math.radians(-12.0)
     )
@@ -377,6 +389,38 @@ def test_tightened_lateral_stack_restores_310_mm_track(detailed_solids):
     hardware_bounds = solidbbox(detailed_solids["LEFT_WHEEL_AXLE_HARDWARE"])
     assert shaft_bounds[0][1] == pytest.approx(-56.0, abs=0.02)
     assert hardware_bounds[0][1] > 18.0
+
+
+@pytest.mark.expensive_geometry
+@pytest.mark.parametrize(
+    ("joint", "angle_deg", "moving", "bumpers"),
+    (
+        ("left_rocker_pivot", -18.0, "left_rocker",
+         "left_rocker_limit_bumpers"),
+        ("left_rocker_pivot", 18.0, "left_rocker",
+         "left_rocker_limit_bumpers"),
+        ("left_bogie_pivot", -35.0, "left_bogie",
+         "left_bogie_limit_bumpers"),
+        ("left_bogie_pivot", 38.0, "left_bogie",
+         "left_bogie_limit_bumpers"),
+    ),
+)
+def test_replaceable_bumpers_meet_moving_tabs_at_joint_limits(
+    detailed_solids, joint, angle_deg, moving, bumpers,
+):
+    assembly = make_detailed_assembly(detailed_solids)
+    result = assembly.solve("chassis", {joint: math.radians(angle_deg)})
+    assert result.success, result.errors
+    positioned = assembly.positioned_parts()
+    measurement = measure_brep_pair(
+        moving, positioned[moving], bumpers, positioned[bumpers]
+    )
+    # The nominal endpoint intentionally preloads the flexible pad by a tiny
+    # amount. It is well below one cubic millimetre for three of the four
+    # limits and below two cubic millimetres at the asymmetric -35 degree
+    # bogie stop; two degrees inside the range remains fully separated.
+    assert 0.0 < measurement.intersection_volume <= 2.0
+    assert measurement.clearance == pytest.approx(0.0, abs=1e-8)
 
 
 def test_physical_differential_tracks_the_affine_joint_contract(detailed_solids):
@@ -601,8 +645,8 @@ def test_full_dsl_build_creates_valid_v02_product_package(tmp_path, source):
     assert result.success, result.error_message
     manifest = result.manifest
     assert manifest.data["schema"] == "ycpkg-spec-v0.2"
-    assert len(manifest.data["instances"]) == 58
-    assert len(manifest.data["components"]) <= 58
+    assert len(manifest.data["instances"]) == 62
+    assert len(manifest.data["components"]) <= 62
     components = {
         component["id"]: component for component in manifest.data["components"]
     }
@@ -610,7 +654,7 @@ def test_full_dsl_build_creates_valid_v02_product_package(tmp_path, source):
         components[instance["component"]]["disposition"]
         for instance in manifest.data["instances"]
     )
-    assert dispositions == {"make": 16, "buy": 30, "raw_stock": 12}
+    assert dispositions == {"make": 20, "buy": 30, "raw_stock": 12}
     assert manifest.data["geometry"]["primary"]["schema"] == (
         "yapcad-geometry-json-v0.2"
     )
