@@ -40,6 +40,12 @@ WHEELS = (
 )
 PRINTED_LINKS = ("chassis", "left_rocker", "right_rocker",
                  "left_bogie", "right_bogie")
+LIMIT_CONTACT_PAIRS = canonical_pairs({
+    ("left_rocker", "left_rocker_limit_bumpers"),
+    ("right_rocker", "right_rocker_limit_bumpers"),
+    ("left_bogie", "left_bogie_limit_bumpers"),
+    ("right_bogie", "right_bogie_limit_bumpers"),
+})
 MOVING_AXLE_PARTS = tuple(
     instance for _, instance in PART_INSTANCES
     if instance.endswith(("_shaft", "_spacer", "_hardware",
@@ -89,10 +95,16 @@ def _intended_key_contacts(part_names):
     }
 
 
-def _intended_contacts(part_names):
+def _intended_contacts(part_names, *, limit_contacts=()):
+    names = set(part_names)
+    present_limit_contacts = {
+        pair for pair in limit_contacts
+        if pair[0] in names and pair[1] in names
+    }
     return (_intended_wheel_contacts(part_names) |
             _intended_differential_contacts(part_names) |
-            _intended_key_contacts(part_names))
+            _intended_key_contacts(part_names) |
+            present_limit_contacts)
 
 
 def _wheel_clearance_requirements():
@@ -168,6 +180,7 @@ def _sweep_collision_pairs():
         ("left_rocker", "left_bogie"),
         ("right_rocker", "right_bogie"),
     }))
+    pairs.update(LIMIT_CONTACT_PAIRS)
     return pairs
 
 
@@ -304,8 +317,10 @@ def test_joint_range_sweep_uses_at_most_two_degree_steps(occ_rover):
     """Sweep every joint range with broad-phase promotion to exact BREP."""
     sweeps = (
         ("left_rocker_pivot", np.arange(-18.0, 18.01, 2.0)),
-        ("left_bogie_pivot", np.arange(-35.0, 38.01, 2.0)),
-        ("right_bogie_pivot", np.arange(-35.0, 38.01, 2.0)),
+        ("left_bogie_pivot",
+         np.concatenate((np.arange(-35.0, 38.0, 2.0), [38.0]))),
+        ("right_bogie_pivot",
+         np.concatenate((np.arange(-35.0, 38.0, 2.0), [38.0]))),
     )
     foreign_hardware_requirements = _foreign_wheel_hardware_requirements()
     chassis_hardware_pairs = _chassis_hardware_pairs()
@@ -336,6 +351,7 @@ def test_joint_range_sweep_uses_at_most_two_degree_steps(occ_rover):
                 ("differential_carrier_bearings", "left_rocker_pivot_shaft"),
                 ("differential_carrier_bearings", "right_rocker_pivot_shaft"),
             })
+            collision_pairs.update(LIMIT_CONTACT_PAIRS)
         else:
             side = "left" if joint.startswith("left") else "right"
             moving_wheels = (f"{side}_middle_wheel", f"{side}_rear_wheel")
@@ -347,6 +363,7 @@ def test_joint_range_sweep_uses_at_most_two_degree_steps(occ_rover):
             collision_pairs = set(requirements) | canonical_pairs({
                 (f"{side}_bogie", f"{side}_rocker"),
                 (f"{side}_bogie", "chassis"),
+                (f"{side}_bogie", f"{side}_bogie_limit_bumpers"),
             })
         requirements.update(foreign_hardware_requirements)
         collision_pairs.update(chassis_hardware_pairs)
@@ -375,9 +392,24 @@ def test_joint_range_sweep_uses_at_most_two_degree_steps(occ_rover):
                 name: occ_rover.get_part_geometry(name, positioned=True)
                 for name in needed_parts
             }
+            endpoint_contacts = set()
+            if joint == "left_rocker_pivot" and abs(angle) == 18.0:
+                endpoint_contacts.update({
+                    canonical_pair("left_rocker",
+                                   "left_rocker_limit_bumpers"),
+                    canonical_pair("right_rocker",
+                                   "right_rocker_limit_bumpers"),
+                })
+            elif joint.endswith("_bogie_pivot") and angle in (-35.0, 38.0):
+                side = "left" if joint.startswith("left") else "right"
+                endpoint_contacts.add(canonical_pair(
+                    f"{side}_bogie", f"{side}_bogie_limit_bumpers",
+                ))
             report = audit_positioned_breps(
                 positioned,
-                intended_contacts=_intended_contacts(positioned),
+                intended_contacts=_intended_contacts(
+                    positioned, limit_contacts=endpoint_contacts,
+                ),
                 minimum_clearances=candidate_requirements,
                 pairs=candidate_pairs,
             )

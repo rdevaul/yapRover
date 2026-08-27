@@ -28,8 +28,9 @@ design study rather than part of the passive first prototype.
 - `src/yaprover/` contains rover-specific kinematic and validation tools.
 - `tests/` verifies the numerical oracle, mate-solved assembly, analytic
   geometry, and mechanical clearances.
-- `docs/` will contain fabrication and assembly documentation.
-- `bom/` and `manufacturing/` will contain sourcing and fabrication data.
+- `docs/` contains design, fabrication, and fit-validation documentation.
+- `bom/` contains the reviewed procurement catalog and generated purchase
+  and cut lists; `manufacturing/` documents release-generation policy.
 - `releases/` is reserved for versioned `.ycpkg` design releases.
 
 ## Development environment
@@ -85,8 +86,31 @@ validation before reporting success.
 The generated BOM now distinguishes printed `make` parts, purchased `buy`
 hardware, and `raw_stock` cut-to-length shafts, keys, and spacer tube. These
 classes also drive the viewer's fabricated, COTS, and raw-stock visibility and
-rendering styles. Procurement details are still preliminary, so do not use the
-BOM for purchasing without checking the source specifications.
+rendering styles.
+
+Generate the prototype purchase BOM and cut list from that package with:
+
+```bash
+python tools/build_purchase_bom.py
+```
+
+The CSV files are written to `build/procurement/`. The reviewed input catalog
+is `bom/prototype-v0.1.json`; it adds prototype spares, supplier pack rounding,
+stock-cut lengths, and critical inspection notes to the engineering quantities
+in the package. See [the BOM guide](bom/README.md) before ordering. In
+particular, the M8 wheel axles remain manufacturer-neutral specifications and
+must be checked against the chosen supplier drawing.
+
+Before printing production parts, generate and evaluate the 608 pocket, 8 mm
+axle, 2 mm key, and TPU bumper-socket coupons:
+
+```bash
+python tools/build_fit_coupons.py
+```
+
+The [fit-coupon procedure](docs/fit-coupons.md) defines the size ladders and
+acceptance checks. Coupon results are printer-, material-, and slicer-specific;
+record them before changing production dimensions.
 
 Until yapCAD publishes the next release, `pyproject.toml` pins the exact
 upstream commit containing the assembly, coupling, bevel-gear, and packaging
@@ -102,7 +126,8 @@ pin and thrust clearances plus all four meshes through a complete tooth pitch.
 
 The [suspension geometry and ROM notes](docs/suspension.md) document the
 single-band split rocker, adjacent bogie layer, recessed axle retention, and
-the broad-phase plus exact-BREP range-of-motion acceptance test.
+replaceable TPU hard stops, plus the broad-phase and exact-BREP range-of-motion
+acceptance test.
 
 An optional [powered-wheel candidate study](docs/drive_candidates.md) defines
 a motor envelope, split-clamp mount, coupler, rotating axle, and suspension-side

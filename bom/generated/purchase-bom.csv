@@ -1,0 +1,13 @@
+line,id,description,supplier,sku,required,spares,order_quantity,unit,pack_quantity,url,critical_dimensions
+1,BRG-608-2RS,"608-2RS sealed bearing, 8 x 22 x 7 mm",McMaster-Carr,2349K744,22,2,24,each,1,https://www.mcmaster.com/2349K744/,
+2,AXLE-M8X80-LP,"DIN 7984 low-profile socket screw, M8 x 1.25 x 80 mm, class 8.8 or stronger",Metric fastener supplier,DIN7984-M8X80-8.8,2,1,3,each,1,https://www.mcmaster.com/products/din-7984-socket-head-cap-screws/,Head <=13.2 mm diameter and <=4.9 mm high; confirm thread runout does not bear on the inboard 608 inner race.
+3,AXLE-M8X65-LP,"DIN 7984 low-profile socket screw, M8 x 1.25 x 65 mm, class 8.8 or stronger",Metric fastener supplier,DIN7984-M8X65-8.8,4,2,6,each,1,https://www.mcmaster.com/products/din-7984-socket-head-cap-screws/,Head <=13.2 mm diameter and <=4.9 mm high; confirm thread runout does not bear on the inboard 608 inner race.
+4,WSH-M8-DIN125,"M8 zinc-plated flat washer, 8.4 mm ID x 16 mm OD",McMaster-Carr,93413A160,12,3,15,each,5,https://www.mcmaster.com/93413A160/,
+5,NUT-M8-NYLOC-LOW,M8 x 1.25 thin-profile zinc-plated nylon-insert locknut,McMaster-Carr,90453A115,10,2,15,each,5,https://www.mcmaster.com/90453A115/,
+6,RING-8MM-PUSH,"8 mm push-on external retaining ring, 13 mm OD",McMaster-Carr,92133A109,4,4,100,each,100,https://www.mcmaster.com/92133A109/,
+7,SCR-M4X20,"M4 x 0.7 x 20 mm socket-head screw, zinc-plated steel",Metric fastener supplier,ISO4762-M4X20-8.8,4,2,10,each,10,https://www.mcmaster.com/products/socket-head-screws/thread-size~m4/,
+8,NUT-M4-NYLOC,M4 x 0.7 thin-profile nylon-insert locknut,McMaster-Carr,90453A112,4,2,25,each,25,https://www.mcmaster.com/90453A112/,
+9,PIN-DIFF-8X72,"Differential cross-pin, smooth 7.9-8.0 mm shoulder x 72 mm with retained ends",Machine from shaft stock or metric shoulder-fastener supplier,CUSTOM-8X72,1,1,2,each,1,,Smooth bearing length 72.0 +/-0.1 mm; diameter 7.90 +/-0.03 mm; retention must clamp the carrier towers only.
+10,WSH-M8-LOWFRICTION,"Low-friction M8 thrust washer, 8.3-8.5 mm ID x 16 mm OD x 1.0 mm",Industrial plastics supplier,PTFE-M8-16X1,2,2,10,each,10,https://www.mcmaster.com/products/plastic-washers/,Do not substitute a washer thicker than 1.05 mm without re-shimming the differential.
+11,FIL-PETG,"PET-G filament, 1.75 mm, structurally consistent production lot",Filament supplier,PETG-1.75-1KG,3,0,3,1 kg spool,1,,
+12,FIL-TPU95A,TPU 95A filament for replaceable suspension bumpers,Filament supplier,TPU95A-1.75-0.5KG,1,0,1,0.5 kg spool,1,,
