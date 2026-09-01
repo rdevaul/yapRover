@@ -44,6 +44,11 @@ conda activate yaprover
 python -m pip install -e '.[test]'
 ```
 
+The editable install requests yapCAD's `meshcheck` extra, including `trimesh`
+and `pymeshfix`. These packages are required by the strict watertightness check
+used when generating printable STL files. If this checkout was installed before
+that dependency was added, rerun the editable-install command above.
+
 Run the normal test suite:
 
 ```bash

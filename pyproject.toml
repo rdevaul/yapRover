@@ -22,7 +22,9 @@ dependencies = [
   "numpy>=1.22",
   # Temporary reproducible dependency until the post-1.1 yapCAD features
   # used by the rover are included in a tagged release.
-  "yapCAD @ git+https://github.com/rdevaul/yapCAD.git@1363c157b1dea01fee7245c1f9fd8aaaeba79b93",
+  # Strict STL validation for manufacturing artifacts uses yapCAD's
+  # trimesh/pymeshfix-backed meshcheck extra.
+  "yapCAD[meshcheck] @ git+https://github.com/rdevaul/yapCAD.git@1363c157b1dea01fee7245c1f9fd8aaaeba79b93",
 ]
 
 [project.optional-dependencies]
