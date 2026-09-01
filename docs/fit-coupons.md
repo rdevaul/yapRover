@@ -13,6 +13,12 @@ python tools/build_fit_coupons.py
 Outputs are written to `build/fit-coupons/`. Pass `--force` to replace an
 existing set.
 
+The builder performs strict watertight STL validation through yapCAD's
+`meshcheck` extra. A fresh repository install with
+`python -m pip install -e '.[test]'` installs the required `trimesh` and
+`pymeshfix` packages. If the builder reports that `trimesh` is unavailable,
+rerun that install command inside the activated `yaprover` environment.
+
 Each PET-G coupon has one small orientation-marker hole near its left/front
 corner. Read the five test features from left to right when that marker is at
 the lower left:
