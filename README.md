@@ -33,6 +33,21 @@ design study rather than part of the passive first prototype.
   and cut lists; `manufacturing/` documents release-generation policy.
 - `releases/` is reserved for versioned `.ycpkg` design releases.
 
+The release assembly is `designs/yaprover_suspension_detailed.dsl`; the
+smaller suspension, link, and interface files are earlier studies used by
+their own tests. Apply production fit changes to the detailed source.
+
+The release chassis is now one connected 205 x 195 x 110 mm print. A 5 mm
+brim requires a 215 x 205 mm usable bed area. Wheel retention includes metal
+inner-race spacers, and the cut list includes shaft keyway/thread operations;
+physical fit and loaded operation still require prototype inspection.
+
+See the [annotated geometry update](renders/yapRover_geometry_updates.png)
+for the one-piece chassis, wheel-hub cutaway, and machined rocker shaft.
+To regenerate it, build the current package and run
+`python tools/render_geometry_updates.py` in an environment with VTK installed
+and an available graphics context.
+
 ## Development environment
 
 OpenCASCADE is required for the authoritative analytic geometry tests. Create
@@ -138,6 +153,10 @@ An optional [powered-wheel candidate study](docs/drive_candidates.md) defines
 a motor envelope, split-clamp mount, coupler, rotating axle, and suspension-side
 dual-bearing cartridge. It is deliberately excluded from the passive first-build
 package until prototype mass and traction measurements justify a motor choice.
+
+The [interactive terrain visualization plan](docs/visualization-plan.md)
+outlines a kinematic playback tool, continuous wheel-contact work, and the
+separate effort required for a force-based physical simulation.
 
 ## License
 

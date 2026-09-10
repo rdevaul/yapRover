@@ -199,6 +199,12 @@
         "right_rocker_pivot_shaft": 106.5,
         "left_bogie_pivot_shaft": 51.5,
         "right_bogie_pivot_shaft": 51.5
+      },
+      "processByComponent": {
+        "left_rocker_pivot_shaft": "Face and deburr; mill two 2.05 mm keyways to DSL locations, 1.20 mm deep from modeled OD; fit actual bearings and push-on retainers",
+        "right_rocker_pivot_shaft": "Face and deburr; mill two 2.05 mm keyways to DSL locations, 1.20 mm deep from modeled OD; fit actual bearings and push-on retainers",
+        "left_bogie_pivot_shaft": "Face and deburr; M8x1.25 threads 9.5 mm at inboard end and 7 mm at outboard end; retain smooth bearing journals",
+        "right_bogie_pivot_shaft": "Face and deburr; M8x1.25 threads 9.5 mm at inboard end and 7 mm at outboard end; retain smooth bearing journals"
       }
     },
     {
@@ -210,10 +216,10 @@
       "orderLengthMm": 300,
       "kerfMm": 1,
       "cuts": {
-        "wheel_spacer_13x8p3x21p4": 21.4,
-        "wheel_spacer_13x8p3x21p4_right": 21.4,
-        "bogie_wheel_spacer_4p4mm": 4.4,
-        "bogie_wheel_spacer_4p4mm_right": 4.4
+        "wheel_spacer_13x8p3x22p8": 22.8,
+        "wheel_spacer_13x8p3x22p8_right": 22.8,
+        "bogie_wheel_spacer_5p8mm": 5.8,
+        "bogie_wheel_spacer_5p8mm_right": 5.8
       }
     },
     {
@@ -224,11 +230,28 @@
       "url": "https://www.mcmaster.com/92288A710/",
       "orderLengthMm": 305,
       "kerfMm": 1,
-      "piecePatternMm": [12.5, 8.5],
+      "piecePatternMm": [
+        12.5,
+        8.5
+      ],
       "componentIds": [
         "left_rocker_pivot_keys",
         "right_rocker_pivot_keys"
       ]
+    },
+    {
+      "id": "STOCK-INNER-SPACER-12X8P3",
+      "description": "12 mm OD x 8.3 mm ID metal wheel inner-race spacer tube",
+      "supplier": "Metric tube supplier",
+      "sku": "TUBE-12X8.3",
+      "url": "",
+      "orderLengthMm": 200,
+      "kerfMm": 1,
+      "toleranceMm": 0.02,
+      "process": "Face to measured seated-bearing separation; deburr; confirm free rotation with retention tightened",
+      "cuts": {
+        "wheel_inner_spacer_12x8p3x21p4": 21.4
+      }
     }
   ]
 }

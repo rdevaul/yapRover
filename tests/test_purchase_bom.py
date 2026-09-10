@@ -44,6 +44,7 @@ def _fake_package(tmp_path: Path) -> Path:
     quantities = {component: 1 for component in components}
     quantities.update({
         "bearing_608_wheel_pair": 6,
+        "wheel_inner_spacer_12x8p3x21p4": 6,
         "right_front_bearings": 2,
         "right_middle_bearings": 2,
         "right_rear_bearings": 2,
@@ -58,8 +59,8 @@ def _fake_package(tmp_path: Path) -> Path:
         "wheel_axle_retention_m8_right": 3,
         "differential_cradle_fasteners": 4,
         "differential_planet_thrust_washers": 2,
-        "bogie_wheel_spacer_4p4mm": 2,
-        "bogie_wheel_spacer_4p4mm_right": 2,
+        "bogie_wheel_spacer_5p8mm": 2,
+        "bogie_wheel_spacer_5p8mm_right": 2,
     })
     payload = {
         "schema": "yapcad-bom-v0.1",
@@ -103,11 +104,20 @@ def test_cut_list_uses_actual_component_multiplicity(tmp_path):
     short_spacers = [
         row for row in rows
         if row["stock_id"] == "STOCK-SPACER-13X8P3"
-        and row["finished_length_mm"] == "4.4"
+        and row["finished_length_mm"] == "5.8"
     ]
     assert sum(int(row["quantity"]) for row in short_spacers) == 4
     keys = [row for row in rows if row["stock_id"] == "STOCK-KEY-2MM"]
     assert sorted(float(row["finished_length_mm"]) for row in keys) == [8.5, 8.5, 12.5, 12.5]
+    inner = next(row for row in rows if row["stock_id"] == "STOCK-INNER-SPACER-12X8P3")
+    assert inner["quantity"] == "6"
+    assert inner["finished_length_mm"] == "21.4"
+    assert inner["tolerance_mm"] == "0.02"
+    assert "seated-bearing separation" in inner["process"]
+    rocker = next(row for row in rows if row["piece"] == "left_rocker_pivot_shaft")
+    bogie = next(row for row in rows if row["piece"] == "left_bogie_pivot_shaft")
+    assert "keyways" in rocker["process"]
+    assert "M8x1.25 threads" in bogie["process"]
 
 
 def test_generator_rejects_undersized_stock_length(tmp_path):

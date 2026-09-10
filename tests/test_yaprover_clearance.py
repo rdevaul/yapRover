@@ -8,6 +8,7 @@ retain five millimetres of clearance from links and chassis.
 from __future__ import annotations
 
 import math
+from itertools import combinations, product
 from pathlib import Path
 
 import numpy as np
@@ -423,3 +424,70 @@ def test_rover_defines_separate_hub_or_shaft_geometry_for_contact_allowlist():
     proposed = ("AXLE_SHAFT", "WHEEL_SHAFT")
 
     assert any(f"command {name}(" in source for name in proposed)
+
+
+@pytest.mark.requires_occ
+@pytest.mark.expensive_geometry
+def test_combined_extremes_and_terrain_paths_clear_detailed_rover(occ_rover):
+    """Exercise simultaneous rocker/bogie motion on the actual hardware."""
+    from yaprover.kinematics.rocker_bogie import apply_terrain_pose
+
+    pairs = set(combinations(sorted(occ_rover.parts), 2))
+    requirements = _wheel_clearance_requirements()
+    requirements.update(_foreign_wheel_hardware_requirements())
+    corners = {
+        name: _bbox_corners(occ_rover.get_part_geometry(name))
+        for name in occ_rover.parts
+    }
+    checked = set()
+
+    def audit(result, label):
+        assert result.success, (label, result.errors)
+        candidates = _broad_phase_candidates(
+            corners, result.transforms, pairs, requirements,
+        )
+        endpoint_contacts = set()
+        for side in ("left", "right"):
+            for member, endpoints in (("rocker", (-18, 18)), ("bogie", (-35, 38))):
+                angle = math.degrees(result.joint_values[f"{side}_{member}_pivot"])
+                if any(abs(angle - endpoint) < 1e-7 for endpoint in endpoints):
+                    endpoint_contacts.add(canonical_pair(
+                        f"{side}_{member}", f"{side}_{member}_limit_bumpers",
+                    ))
+        allowed = _intended_contacts(occ_rover.parts, limit_contacts=endpoint_contacts)
+        # An allowlisted pair with no distance requirement cannot fail this
+        # audit. Gear meshes and bumper preload have dedicated exact tests.
+        candidates = {p for p in candidates if p not in allowed or p in requirements}
+        fresh = set()
+        for pair in candidates:
+            relative = np.linalg.solve(result.transforms[pair[0]], result.transforms[pair[1]])
+            key = (pair, tuple(np.round(relative, 12).flat), pair in allowed)
+            if key not in checked:
+                checked.add(key)
+                fresh.add(pair)
+        # Reuse successful checks only when relative geometry is unchanged
+        # to numerical precision, including through whole-rover pitch/roll.
+        needed = {name for pair in fresh for name in pair}
+        positioned = {
+            name: occ_rover.get_part_geometry(name, positioned=True)
+            for name in needed
+        }
+        report = audit_positioned_breps(
+            positioned, pairs=fresh, intended_contacts=allowed,
+            minimum_clearances={p: v for p, v in requirements.items() if p in fresh},
+        )
+        assert report.success, (label, report)
+
+    for rocker, left_bogie, right_bogie in product((-18, 18), (-35, 38), (-35, 38)):
+        angles = dict(zip(
+            ("left_rocker_pivot", "left_bogie_pivot", "right_bogie_pivot"),
+            map(math.radians, (rocker, left_bogie, right_bogie)),
+        ))
+        audit(occ_rover.solve("chassis", angles), angles)
+
+    for target in ({"lf": 80}, {"lm": 80}, {"lr": 80}, {"lf": 80, "rr": 80}):
+        for fraction in (0.0, 0.5, 1.0):
+            terrain = {name: fraction * height for name, height in target.items()}
+            pose, result = apply_terrain_pose(occ_rover, terrain)
+            assert pose.success, pose.errors
+            audit(result, terrain)

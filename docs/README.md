@@ -9,6 +9,7 @@ Current design and build notes:
 - [Differential cartridge](differential.md)
 - [Optional wheel-drive candidates](drive_candidates.md)
 - [Prototype fit coupons and acceptance procedure](fit-coupons.md)
+- [Interactive terrain visualization scope and effort](visualization-plan.md)
 
 Background references:
 
