@@ -130,8 +130,10 @@ def generate(package: Path, catalog_path: Path, output: Path) -> tuple[Path, Pat
                     "piece": piece,
                     "quantity": quantity,
                     "finished_length_mm": _display_number(length),
-                    "tolerance_mm": 0.1,
-                    "process": "saw, deburr, face square",
+                    "tolerance_mm": stock.get("toleranceMm", 0.1),
+                    "process": stock.get("processByComponent", {}).get(
+                        piece, stock.get("process", "saw, deburr, face square")
+                    ),
                     "url": stock.get("url", ""),
                 })
     return purchase_path, cut_path

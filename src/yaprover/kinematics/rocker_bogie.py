@@ -34,8 +34,10 @@ class RockerBogieGeometry:
     half_track: float = 155.0
     rocker_min: float = math.radians(-18.0)
     rocker_max: float = math.radians(18.0)
-    bogie_min: float = math.radians(-35.0)
-    bogie_max: float = math.radians(38.0)
+    # Oracle angles are nose-up positive; the CAD +Y joint convention is
+    # opposite. CAD limits [-35, +38] therefore become [-38, +35] here.
+    bogie_min: float = math.radians(-38.0)
+    bogie_max: float = math.radians(35.0)
 
 
 @dataclass(frozen=True)

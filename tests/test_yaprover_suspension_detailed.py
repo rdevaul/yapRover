@@ -61,6 +61,12 @@ PART_INSTANCES = (
     ("RIGHT_WHEEL_AXLE_SPACER", "right_front_spacer"),
     ("RIGHT_BOGIE_WHEEL_AXLE_SPACER", "right_middle_spacer"),
     ("RIGHT_BOGIE_WHEEL_AXLE_SPACER", "right_rear_spacer"),
+    ("WHEEL_INNER_RACE_SPACER", "left_front_inner_spacer"),
+    ("WHEEL_INNER_RACE_SPACER", "left_middle_inner_spacer"),
+    ("WHEEL_INNER_RACE_SPACER", "left_rear_inner_spacer"),
+    ("WHEEL_INNER_RACE_SPACER", "right_front_inner_spacer"),
+    ("WHEEL_INNER_RACE_SPACER", "right_middle_inner_spacer"),
+    ("WHEEL_INNER_RACE_SPACER", "right_rear_inner_spacer"),
     ("LEFT_WHEEL_AXLE_HARDWARE", "left_front_axle_hardware"),
     ("LEFT_WHEEL_AXLE_HARDWARE", "left_middle_axle_hardware"),
     ("LEFT_WHEEL_AXLE_HARDWARE", "left_rear_axle_hardware"),
@@ -138,6 +144,18 @@ HARDWARE_MATES = (
     ("right_middle_spacer_mount", "right_bogie", "right_middle_spacer",
      "middle_axle", "axle"),
     ("right_rear_spacer_mount", "right_bogie", "right_rear_spacer",
+     "rear_axle", "axle"),
+    ("left_front_inner_spacer_mount", "left_rocker", "left_front_inner_spacer",
+     "front_axle", "axle"),
+    ("left_middle_inner_spacer_mount", "left_bogie", "left_middle_inner_spacer",
+     "middle_axle", "axle"),
+    ("left_rear_inner_spacer_mount", "left_bogie", "left_rear_inner_spacer",
+     "rear_axle", "axle"),
+    ("right_front_inner_spacer_mount", "right_rocker", "right_front_inner_spacer",
+     "front_axle", "axle"),
+    ("right_middle_inner_spacer_mount", "right_bogie", "right_middle_inner_spacer",
+     "middle_axle", "axle"),
+    ("right_rear_inner_spacer_mount", "right_bogie", "right_rear_inner_spacer",
      "rear_axle", "axle"),
     ("left_front_axle_hardware_mount", "left_rocker",
      "left_front_axle_hardware", "front_axle", "axle"),
@@ -300,9 +318,7 @@ def test_every_printed_component_fits_220_mm_bed(source):
         "rocker rear": _compile(source, "ROCKER_REAR_COMPONENT"),
         "bogie": _compile(source, "BOGIE_FINISHED", {"side": 1}),
         "wheel": _compile(source, "WHEEL_HUB"),
-        "chassis tub": _compile(source, "CHASSIS_TUB"),
-        "chassis front": _compile(source, "CHASSIS_FRONT_SEGMENT"),
-        "chassis rear": _compile(source, "CHASSIS_REAR_SEGMENT"),
+        "chassis": _compile(source, "CHASSIS_FINISHED"),
         "chassis interface": _compile(
             source, "CHASSIS_SIDE_INTERFACE", {"side": 1},
         ),
@@ -310,6 +326,59 @@ def test_every_printed_component_fits_220_mm_bed(source):
     }
     for name, solid in components.items():
         assert np.all(_extent(solid) <= [220.0, 220.0, 250.0]), (name, _extent(solid))
+
+
+def test_finished_chassis_is_one_connected_print(detailed_solids):
+    from OCC.Core.TopAbs import TopAbs_SOLID
+    from OCC.Core.TopExp import TopExp_Explorer
+    from yapcad.brep import brep_from_solid
+
+    chassis = detailed_solids["CHASSIS_FINISHED"]
+    explorer = TopExp_Explorer(brep_from_solid(chassis).shape, TopAbs_SOLID)
+    count = 0
+    while explorer.More():
+        count += 1
+        explorer.Next()
+    assert count == 1
+    np.testing.assert_allclose(_extent(chassis), [205, 195, 110], atol=0.01)
+
+
+def test_wheel_retention_has_continuous_metal_inner_race_stack(detailed_solids):
+    """A tightened stack must touch without pinching the rotating hub."""
+    inner = detailed_solids["WHEEL_INNER_RACE_SPACER"]
+    wheel = detailed_solids["LEFT_WHEEL"]
+    bearings = detailed_solids["LEFT_WHEEL_BEARINGS"]
+    hardware = detailed_solids["LEFT_WHEEL_AXLE_HARDWARE"]
+    for name in ("LEFT_WHEEL_AXLE_SPACER", "LEFT_BOGIE_WHEEL_AXLE_SPACER"):
+        external = detailed_solids[name]
+        measurement = measure_brep_pair(name, external, "bearings", bearings)
+        assert measurement.intersection_volume <= 1e-7
+        assert measurement.clearance <= 1e-6
+    for name, part in (("internal", inner), ("retention", hardware)):
+        measurement = measure_brep_pair(name, part, "bearings", bearings)
+        assert measurement.intersection_volume <= 1e-7
+        assert measurement.clearance <= 1e-6
+    measurement = measure_brep_pair("internal", inner, "wheel", wheel)
+    assert measurement.intersection_volume <= 1e-7
+    assert measurement.clearance == pytest.approx(0.25, abs=0.01)
+    # Bearing rings seat against the wheel shoulders rather than floating
+    # axially on a too-long internal spacer.
+    from test_yaprover_wheel_chassis_interfaces import _inside
+    for side in (-1, 1):
+        assert _inside(wheel, (9, side * 10.69, 0))
+        assert not _inside(wheel, (9, side * 10.71, 0))
+    # Real 608 bore: a point just below radius 4 must be empty.
+    assert not _inside(bearings, (3.99, 14.2, 0))
+    assert _inside(bearings, (4.01, 14.2, 0))
+
+
+def test_rocker_keys_fit_machined_shaft_slots(detailed_solids):
+    measurement = measure_brep_pair(
+        "shaft", detailed_solids["LEFT_ROCKER_PIVOT_SHAFT"],
+        "keys", detailed_solids["LEFT_ROCKER_PIVOT_KEYS"],
+    )
+    assert measurement.intersection_volume <= 1e-7
+    assert measurement.clearance <= 0.06
 
 
 @pytest.mark.expensive_geometry
@@ -327,8 +396,8 @@ def test_detailed_geometry_retains_proven_datum_graph(detailed_solids):
     result = assembly.solve("chassis", {"left_rocker_pivot": math.radians(12.0)})
 
     assert result.success, result.errors
-    assert len(assembly.parts) == 62
-    assert len(assembly.mates) == 61
+    assert len(assembly.parts) == 68
+    assert len(assembly.mates) == 67
     assert assembly._joint_values["right_rocker_pivot"] == pytest.approx(
         math.radians(-12.0)
     )
@@ -348,11 +417,11 @@ def test_metric_hardware_is_explicit_and_dimensionally_bounded(detailed_solids):
 
     assert len([name for name in assembly.parts if name.endswith("_shaft")]) == 10
     assert len([name for name in assembly.parts if name.endswith("_bearings")]) == 11
-    assert len([name for name in assembly.parts if name.endswith("_spacer")]) == 6
+    assert len([name for name in assembly.parts if name.endswith("_spacer")]) == 12
     assert len([name for name in assembly.parts if name.endswith("_hardware")]) == 10
     bearing_extent = _extent(detailed_solids["LEFT_WHEEL_BEARINGS"])
     np.testing.assert_allclose(bearing_extent[[0, 2]], [22.0, 21.839595], atol=0.02)
-    assert bearing_extent[1] == pytest.approx(35.7, abs=0.02)
+    assert bearing_extent[1] == pytest.approx(35.4, abs=0.02)
     for name, part in assembly.parts.items():
         if name.endswith(("_shaft", "_bearings")):
             datum = part.datums.get("axle") or part.datums["axis"]
@@ -381,14 +450,14 @@ def test_tightened_lateral_stack_restores_310_mm_track(detailed_solids):
         detailed_solids["LEFT_BOGIE_WHEEL_AXLE_SPACER"]
     )
     assert shaft_extent[1] == pytest.approx(84.0, abs=0.02)
-    assert spacer_extent[1] == pytest.approx(21.4, abs=0.02)
+    assert spacer_extent[1] == pytest.approx(22.8, abs=0.02)
     assert bogie_shaft_extent[1] == pytest.approx(69.0, abs=0.02)
-    assert bogie_spacer_extent[1] == pytest.approx(4.4, abs=0.02)
+    assert bogie_spacer_extent[1] == pytest.approx(5.8, abs=0.02)
 
     shaft_bounds = solidbbox(detailed_solids["LEFT_WHEEL_AXLE_SHAFT"])
     hardware_bounds = solidbbox(detailed_solids["LEFT_WHEEL_AXLE_HARDWARE"])
     assert shaft_bounds[0][1] == pytest.approx(-56.0, abs=0.02)
-    assert hardware_bounds[0][1] > 18.0
+    assert hardware_bounds[0][1] == pytest.approx(17.7, abs=0.02)
 
 
 @pytest.mark.expensive_geometry
@@ -645,8 +714,8 @@ def test_full_dsl_build_creates_valid_v02_product_package(tmp_path, source):
     assert result.success, result.error_message
     manifest = result.manifest
     assert manifest.data["schema"] == "ycpkg-spec-v0.2"
-    assert len(manifest.data["instances"]) == 62
-    assert len(manifest.data["components"]) <= 62
+    assert len(manifest.data["instances"]) == 68
+    assert len(manifest.data["components"]) <= 68
     components = {
         component["id"]: component for component in manifest.data["components"]
     }
@@ -654,7 +723,7 @@ def test_full_dsl_build_creates_valid_v02_product_package(tmp_path, source):
         components[instance["component"]]["disposition"]
         for instance in manifest.data["instances"]
     )
-    assert dispositions == {"make": 20, "buy": 30, "raw_stock": 12}
+    assert dispositions == {"make": 20, "buy": 30, "raw_stock": 18}
     assert manifest.data["geometry"]["primary"]["schema"] == (
         "yapcad-geometry-json-v0.2"
     )

@@ -103,6 +103,22 @@ def test_invalid_middle_wheel_pose_does_not_replace_last_valid_assembly_pose(
         np.testing.assert_allclose(rover_assembly.transforms[name], transform)
 
 
+def test_asymmetric_bogie_limits_agree_at_both_ends(rover_assembly):
+    import math
+    from yaprover.kinematics.rocker_bogie import wheel_centers
+
+    # Round-trip terrain constructed at both physical CAD limit endpoints.
+    for angle in (-38.0, 35.0):
+        centers = wheel_centers(140, 0, 0, 0, math.radians(angle), 0, 0)
+        terrain = {name: z - 65 for name, (_, z) in centers.items()}
+        pose, result = apply_terrain_pose(rover_assembly, terrain)
+        assert pose.success, pose.errors
+        assert result.success, result.errors
+        assert result.joint_values["left_bogie_pivot"] == pytest.approx(
+            -math.radians(angle), abs=1e-8,
+        )
+
+
 def test_coupling_mismatch_restores_complete_previous_assembly_state(
         rover_assembly):
     pose, result = apply_terrain_pose(rover_assembly, {"lf": 80.0})

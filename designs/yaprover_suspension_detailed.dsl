@@ -278,7 +278,7 @@ command BOGIE_FINISHED(side: int) -> solid:
 
 command WHEEL_HUB() -> solid:
     # Ø130 x 36 mm rounded wheel with 10 mm rim, four crossing spokes,
-    # paired 608 seats, and an Ø8.3 running bore.
+    # paired 608 seats, and an Ø12.5 clearance passage for a metal spacer.
     let outer: solid = fillet(cylinder(65.0, 36.0), 2.5)
     let rim_cutter: solid = translate(cylinder(55.0, 38.0), 0.0, 0.0, -1.0)
     let rim: solid = difference(outer, rim_cutter)
@@ -290,7 +290,7 @@ command WHEEL_HUB() -> solid:
     let left_seat: solid = translate(cylinder(11.075, 7.4), 0.0, 0.0, -0.1)
     let right_seat: solid = translate(cylinder(11.075, 7.4),
                                       0.0, 0.0, 28.7)
-    let bore: solid = translate(cylinder(4.15, 36.4), 0.0, 0.0, -0.2)
+    let bore: solid = translate(cylinder(6.25, 36.4), 0.0, 0.0, -0.2)
     let cut: solid = difference_all(blank, [left_seat, right_seat, bore])
     emit rotate(translate(cut, 0.0, 0.0, -18.0), -90.0, 0.0, 0.0)
 
@@ -320,13 +320,13 @@ command RIGHT_WHEEL() -> solid:
 
 
 # ---------------------------------------------------------------------------
-# Metric running hardware.  The repeated BOM is deliberately compact: M8
-# threaded rod, M8 nuts and washers, 608-2RS bearings, and 13 mm OD / 8.3 mm
-# ID spacer tube. Wrapper commands retain one named axle datum per part.
+# Metric running hardware: M8 axle bolts, machined pivot shafts, nuts,
+# washers, 608-2RS bearings, and metal spacer tubes. Wrapper commands retain
+# one named axle datum per part.
 
 command AXLE_SHAFT(length_mm: float, center_y: float) -> solid:
-    # Threads are simplified as Ø7.9 cylinders, providing 0.2 mm diametral
-    # running clearance in the Ø8.3 printed bores.
+    # Shafts/threads are simplified as Ø7.9 cylinders, providing 0.4 mm
+    # diametral clearance in Ø8.3 printed bores. Inspect real journal fits.
     let raw: solid = translate(cylinder(3.95, length_mm),
                                0.0, 0.0, -length_mm / 2.0)
     emit translate(rotate(raw, -90.0, 0.0, 0.0), 0.0, center_y, 0.0)
@@ -375,11 +375,11 @@ command AXLE_SPACER(length_mm: float, center_y: float) -> solid:
 
 
 command BEARING_608(center_y: float) -> solid:
-    # Simplified but dimensionally faithful 608-2RS: Ø22 x 7 with Ø8.2 bore.
+    # Nominal 608-2RS: Ø22 x 7 with Ø8 bore. Ring/seal profiles simplified.
     let outer: solid = difference(cylinder(11.0, 7.0),
                                   cylinder(8.0, 7.0))
     let inner: solid = difference(cylinder(6.25, 7.0),
-                                  cylinder(4.1, 7.0))
+                                  cylinder(4.0, 7.0))
     let shield_blank: solid = translate(cylinder(8.0, 0.5), 0.0, 0.0, 0.25)
     let shield_bore: solid = translate(cylinder(6.25, 0.7),
                                        0.0, 0.0, 0.15)
@@ -399,7 +399,7 @@ command LEFT_WHEEL_AXLE_SHAFT_GEOMETRY() -> solid:
 
 command LEFT_WHEEL_AXLE_SPACER_GEOMETRY() -> solid:
     # Bridges the common suspension band to the wheel's inboard bearing face.
-    emit AXLE_SPACER(21.4, -29.25)
+    emit AXLE_SPACER(22.8, -29.1)
 
 
 command LEFT_BOGIE_WHEEL_AXLE_SHAFT_GEOMETRY() -> solid:
@@ -411,16 +411,32 @@ command LEFT_BOGIE_WHEEL_AXLE_SHAFT_GEOMETRY() -> solid:
 command LEFT_BOGIE_WHEEL_AXLE_SPACER_GEOMETRY() -> solid:
     # The wheel remains on the common y=155 mm plane, leaving a short spacer
     # between the outboard bogie face and the wheel's inboard bearing.
-    emit AXLE_SPACER(4.4, -20.75)
+    emit AXLE_SPACER(5.8, -20.6)
 
 
 command LEFT_WHEEL_AXLE_HARDWARE_GEOMETRY() -> solid:
     # The recessed bolt head replaces the collision-prone inboard washer/nut.
-    emit compound(M8_WASHER(18.9), M8_NUT(23.1))
+    emit compound(M8_WASHER(18.5), M8_NUT(22.7))
 
 
 command LEFT_WHEEL_BEARING_GEOMETRY() -> solid:
-    emit compound(BEARING_608(-14.35), BEARING_608(14.35))
+    emit compound(BEARING_608(-14.2), BEARING_608(14.2))
+
+
+@meta(material="steel spacer tube", component.id="wheel_inner_spacer_12x8p3x21p4",
+      component.name="Wheel inner-race spacer, 12 x 8.3 x 21.4 mm",
+      component.disposition="raw_stock", manufacturing.process="cut_to_length",
+      manufacturing.instructions="Face to measured bearing shoulder separation; verify free rotation with retention tightened",
+      assembly.datums=[
+    {"id": "axle", "kind": "axis",
+     "origin_mm": [0.0, 0.0, 0.0], "direction": [0.0, 1.0, 0.0]}
+])
+command WHEEL_INNER_RACE_SPACER() -> solid:
+    # Seated 7 mm bearings at +/-14.2 have inner faces at +/-10.7 mm.
+    # OD12 clears the hub's OD12.5 passage and bears only on inner rings.
+    let blank: solid = Y_AXIS_CYLINDER(6.0, 21.4, 0.0, 0.0, 0.0)
+    let bore: solid = Y_AXIS_CYLINDER(4.15, 22.1, 0.0, 0.0, 0.0)
+    emit difference(blank, bore)
 
 
 command LEFT_CHASSIS_PIVOT_BEARING_GEOMETRY() -> solid:
@@ -478,8 +494,8 @@ command RIGHT_BOGIE_WHEEL_AXLE_SHAFT() -> solid:
                 vector(0.0, 1.0, 0.0))
 
 
-@meta(material="steel spacer tube", component.id="wheel_spacer_13x8p3x21p4",
-      component.name="Wheel axle spacer, 13 x 8.3 x 21.4 mm",
+@meta(material="steel spacer tube", component.id="wheel_spacer_13x8p3x22p8",
+      component.name="Wheel axle spacer, 13 x 8.3 x 22.8 mm",
       component.disposition="raw_stock", manufacturing.process="cut_to_length",
       assembly.datums=[
     {"id": "axle", "kind": "axis",
@@ -489,8 +505,8 @@ command LEFT_WHEEL_AXLE_SPACER() -> solid:
     emit LEFT_WHEEL_AXLE_SPACER_GEOMETRY()
 
 
-@meta(material="steel spacer tube", component.id="wheel_spacer_13x8p3x21p4_right",
-      component.name="Wheel axle spacer, 13 x 8.3 x 21.4 mm (right hand)",
+@meta(material="steel spacer tube", component.id="wheel_spacer_13x8p3x22p8_right",
+      component.name="Wheel axle spacer, 13 x 8.3 x 22.8 mm (right hand)",
       component.disposition="raw_stock", manufacturing.process="cut_to_length",
       assembly.datums=[
     {"id": "axle", "kind": "axis",
@@ -500,8 +516,8 @@ command RIGHT_WHEEL_AXLE_SPACER() -> solid:
     emit mirror(LEFT_WHEEL_AXLE_SPACER_GEOMETRY(), vector(0.0, 1.0, 0.0))
 
 
-@meta(material="steel spacer tube", component.id="bogie_wheel_spacer_4p4mm",
-      component.name="Bogie wheel axle spacer, 13 x 8.3 x 4.4 mm",
+@meta(material="steel spacer tube", component.id="bogie_wheel_spacer_5p8mm",
+      component.name="Bogie wheel axle spacer, 13 x 8.3 x 5.8 mm",
       component.disposition="raw_stock", manufacturing.process="cut_to_length",
       assembly.datums=[
     {"id": "axle", "kind": "axis",
@@ -512,8 +528,8 @@ command LEFT_BOGIE_WHEEL_AXLE_SPACER() -> solid:
 
 
 @meta(material="steel spacer tube",
-      component.id="bogie_wheel_spacer_4p4mm_right",
-      component.name="Bogie wheel axle spacer, 13 x 8.3 x 4.4 mm (right hand)",
+      component.id="bogie_wheel_spacer_5p8mm_right",
+      component.name="Bogie wheel axle spacer, 13 x 8.3 x 5.8 mm (right hand)",
       component.disposition="raw_stock", manufacturing.process="cut_to_length",
       assembly.datums=[
     {"id": "axle", "kind": "axis",
@@ -607,7 +623,13 @@ command RIGHT_BOGIE_PIVOT_BEARINGS() -> solid:
 command LEFT_ROCKER_PIVOT_SHAFT_GEOMETRY() -> solid:
     # Ends flush with the recessed outboard clip stack at the single rocker
     # band's outer face; the middle wheel is another 22.5 mm outboard.
-    emit AXLE_SHAFT(106.5, -93.75)
+    let shaft: solid = AXLE_SHAFT(106.5, -93.75)
+    # Milled 2.05 mm slots clear the 2 mm keys; extend past each key end.
+    let rocker_slot: solid = translate(box(2.05, 14.5, 3.0),
+                                         0.0, -50.25, 2.75)
+    let gear_slot: solid = translate(box(2.05, 10.5, 3.0),
+                                       0.0, -138.75, 2.75)
+    emit difference(shaft, rocker_slot, gear_slot)
 
 
 command LEFT_ROCKER_PIVOT_KEYS_GEOMETRY() -> solid:
@@ -982,29 +1004,6 @@ command CHASSIS_CUT_TUB() -> solid:
                     DIFFERENTIAL_CRADLE_FASTENER_CUTTERS())
 
 
-command CHASSIS_FRONT_SEGMENT() -> solid:
-    let halfspace: solid = translate(box(102.5, 200.0, 120.0),
-                                     51.25, 0.0, 30.0)
-    emit intersection(CHASSIS_CUT_TUB(), halfspace)
-
-
-command CHASSIS_REAR_SEGMENT() -> solid:
-    let halfspace: solid = translate(box(102.5, 200.0, 120.0),
-                                     -51.25, 0.0, 30.0)
-    emit intersection(CHASSIS_CUT_TUB(), halfspace)
-
-
-command CHASSIS_SPLICE_KEYS() -> solid:
-    # Keep the keys flush with the outer wall (y=+/-97.5) so the rocker
-    # limit tongue retains the designed 1 mm nominal lateral clearance.
-    let left_low: solid = fillet(translate(box(30.0, 8.0, 12.0),
-                                           0.0, 93.5, 25.0), 2.0)
-    let left_high: solid = translate(left_low, 0.0, 0.0, 30.0)
-    let right_low: solid = mirror(left_low, vector(0.0, 1.0, 0.0))
-    let right_high: solid = mirror(left_high, vector(0.0, 1.0, 0.0))
-    emit compound(left_low, left_high, right_low, right_high)
-
-
 command CHASSIS_SIDE_INTERFACE(side: int) -> solid:
     require side == -1 or side == 1, "side must be -1 (right) or +1 (left)"
     # The paired-bearing cartridge is supported at the tub wall.  A future
@@ -1033,9 +1032,11 @@ command CHASSIS_SIDE_INTERFACE(side: int) -> solid:
     ]
 )
 command CHASSIS_FINISHED() -> solid:
-    emit compound(CHASSIS_FRONT_SEGMENT(), CHASSIS_REAR_SEGMENT(),
-                  CHASSIS_SIDE_INTERFACE(1), CHASSIS_SIDE_INTERFACE(-1),
-                  CHASSIS_SPLICE_KEYS())
+    # The 205 x 195 mm tub fits the nominal bed without a structural seam.
+    # Fuse the bearing housings into the wall and reapply their seat cutters.
+    emit difference(union(CHASSIS_CUT_TUB(),
+                          CHASSIS_SIDE_INTERFACE(1), CHASSIS_SIDE_INTERFACE(-1)),
+                    CHASSIS_PIVOT_CUTTERS(1), CHASSIS_PIVOT_CUTTERS(-1))
 
 
 @meta(material="TPU 95A", component.id="left_rocker_limit_bumper_pair",
@@ -1210,6 +1211,12 @@ command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
     add_part(rover, RIGHT_WHEEL_AXLE_SPACER(), "right_front_spacer")
     add_part(rover, RIGHT_BOGIE_WHEEL_AXLE_SPACER(), "right_middle_spacer")
     add_part(rover, RIGHT_BOGIE_WHEEL_AXLE_SPACER(), "right_rear_spacer")
+    add_part(rover, WHEEL_INNER_RACE_SPACER(), "left_front_inner_spacer")
+    add_part(rover, WHEEL_INNER_RACE_SPACER(), "left_middle_inner_spacer")
+    add_part(rover, WHEEL_INNER_RACE_SPACER(), "left_rear_inner_spacer")
+    add_part(rover, WHEEL_INNER_RACE_SPACER(), "right_front_inner_spacer")
+    add_part(rover, WHEEL_INNER_RACE_SPACER(), "right_middle_inner_spacer")
+    add_part(rover, WHEEL_INNER_RACE_SPACER(), "right_rear_inner_spacer")
     add_part(rover, LEFT_WHEEL_AXLE_HARDWARE(), "left_front_axle_hardware")
     add_part(rover, LEFT_WHEEL_AXLE_HARDWARE(), "left_middle_axle_hardware")
     add_part(rover, LEFT_WHEEL_AXLE_HARDWARE(), "left_rear_axle_hardware")
@@ -1298,6 +1305,19 @@ command BUILD_DETAILED_SUSPENSION(rocker_angle: float = 0.0) -> solid:
     add_named_mate(rover, "right_bogie_limit_bumper_mount", "rigid",
                    "right_rocker", "bogie_pivot",
                    "right_bogie_limit_bumpers", "joint_axis")
+
+    add_named_mate(rover, "left_front_inner_spacer_mount", "rigid",
+                   "left_rocker", "front_axle", "left_front_inner_spacer", "axle")
+    add_named_mate(rover, "left_middle_inner_spacer_mount", "rigid",
+                   "left_bogie", "middle_axle", "left_middle_inner_spacer", "axle")
+    add_named_mate(rover, "left_rear_inner_spacer_mount", "rigid",
+                   "left_bogie", "rear_axle", "left_rear_inner_spacer", "axle")
+    add_named_mate(rover, "right_front_inner_spacer_mount", "rigid",
+                   "right_rocker", "front_axle", "right_front_inner_spacer", "axle")
+    add_named_mate(rover, "right_middle_inner_spacer_mount", "rigid",
+                   "right_bogie", "middle_axle", "right_middle_inner_spacer", "axle")
+    add_named_mate(rover, "right_rear_inner_spacer_mount", "rigid",
+                   "right_bogie", "rear_axle", "right_rear_inner_spacer", "axle")
 
     # Shafts and spacers are fixed to their supporting links. Bearing packs
     # are fixed to the wheel hubs, so their outer races follow wheel rotation.

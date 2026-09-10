@@ -84,6 +84,13 @@ def test_middle_wheel_at_100_mm_is_rejected_by_bogie_limit():
                for error in pose.errors)
 
 
+def test_middle_wheel_at_90_mm_respects_cad_sign_converted_limit():
+    pose = solve_terrain_pose({"lm": 90.0})
+    assert not pose.success
+    assert _degrees(pose.left_bogie) == pytest.approx(36.61, abs=0.02)
+    assert any("left bogie" in error for error in pose.errors)
+
+
 def test_unknown_wheel_name_is_rejected():
     pose = solve_terrain_pose({"left_front": 80.0})
 
