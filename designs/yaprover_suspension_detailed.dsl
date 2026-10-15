@@ -127,8 +127,15 @@ command ARM_FILLETED(
     # without the near-horizontal underside of a round. Chamfer while
     # axis-aligned to keep OCC edge topology predictable.
     let rounded: solid = chamfer(box(length, 16.0, 28.0), 4.0)
-    let centered: solid = translate(rounded, 0.0, 0.0, -14.0)
-    let aimed: solid = rotate(centered, 0.0, angle_y_deg, 0.0)
+    # box() is centred on the origin, so the blank already straddles the line
+    # joining the two boss centres, and every call site passes that midpoint
+    # as (center_x, center_z).  An extra translate of -14 mm in z used to be
+    # applied here, before the aiming rotation, which pushed each arm a half
+    # width off that line (-14*sin(angle) in x, -14*cos(angle) in z).  On the
+    # bogie that put the rear arm onto the rocker's upper stop pad at about
+    # +33 degrees, ahead of the +38 degree tab stop that is meant to take the
+    # load.
+    let aimed: solid = rotate(rounded, 0.0, angle_y_deg, 0.0)
     emit translate(aimed, center_x, center_y, center_z)
 
 
@@ -143,12 +150,21 @@ command Y_AXIS_CYLINDER(
 
 
 command LIMIT_CONTACT_TAB(center_y: float) -> solid:
-    # Tapered PET-G fin: 20 mm wide at the root (z=8, inside the hub) down
-    # to 10 mm under an R5 nose on R60.  Contact geometry at the joint
-    # limits is unchanged from the straight 10 mm tab.
+    # Tapered PET-G fin: 20 mm wide at the root (z=8, inside the hub) on a
+    # 1:8 taper, narrowing to 7 mm under an R5 nose on R60.
+    #
+    # The nose is the intended contact: the stop pads are placed tangent to
+    # it at the joint limits (for the bogie, an R6 pad centred on R60.3626
+    # is tangent to the R5 nose 10.4867 degrees away, which is exactly where
+    # BOGIE_STOP_PADS puts it at -35 and +38 degrees).  An earlier 5.4925
+    # degree taper left the fin 10 mm wide at the nose, and the flank just
+    # below the nose then passed inside the pad radius and touched first,
+    # loading a flat flank instead of the nose and interfering by about
+    # 2.6 mm3 at every limit.  Relieving the flank by 1.5 mm per side keeps
+    # the nose proud without thinning the root, where the bending moment is.
     let root: solid = translate(box(20.0, 16.0, 52.0), 0.0, center_y, 34.0)
     let face: solid = translate(box(100.0, 18.0, 200.0), 50.0, 0.0, 0.0)
-    let left_keep: solid = translate(rotate(face, 0.0, 5.4925, 0.0),
+    let left_keep: solid = translate(rotate(face, 0.0, 7.1250, 0.0),
                                      -10.0, center_y, 8.0)
     let right_keep: solid = mirror(left_keep, vector(1.0, 0.0, 0.0))
     let fin: solid = intersection(root, left_keep, right_keep)
@@ -792,10 +808,14 @@ command LEFT_ROCKER_PIVOT_SHAFT_GEOMETRY() -> solid:
     let shaft: solid = AXLE_SHAFT(106.5, -93.75)
     # Milled 3.05 mm x 1.8 mm-deep slots for the 3x3 keys; extend past each
     # key end.  The gear key now also runs under the side gear's new hub.
+    # The gear slot runs 1 mm out of the shaft's inboard end (shaft spans
+    # y = -147.0 .. -40.5).  Closed, it left 3 mm of solid shaft there, and
+    # the key then had to be fed in through the carrier 608 against a cross
+    # pin that caps overtravel at 4 mm, so it could not be fitted at all.
     let rocker_slot: solid = translate(box(3.05, 14.5, 3.0),
                                          0.0, -50.25, 3.7)
-    let gear_slot: solid = translate(box(3.05, 16.5, 3.0),
-                                       0.0, -135.75, 3.7)
+    let gear_slot: solid = translate(box(3.05, 20.5, 3.0),
+                                       0.0, -137.75, 3.7)
     emit difference(shaft, rocker_slot, gear_slot)
 
 
