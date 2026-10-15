@@ -40,13 +40,22 @@ WHEELS = (
     "right_front_wheel", "right_middle_wheel", "right_rear_wheel",
 )
 PRINTED_LINKS = ("chassis", "left_rocker", "right_rocker",
-                 "left_bogie", "right_bogie")
+                 "left_bogie", "right_bogie", "rtg_prism")
+# Range-of-motion stops are rigid PET-G pads printed into the parent part:
+# rocker stops in the chassis tower webs, bogie stops on the rocker.  Each
+# moving tab nose touches its parent only at the declared joint limit.
 LIMIT_CONTACT_PAIRS = canonical_pairs({
-    ("left_rocker", "left_rocker_limit_bumpers"),
-    ("right_rocker", "right_rocker_limit_bumpers"),
-    ("left_bogie", "left_bogie_limit_bumpers"),
-    ("right_bogie", "right_bogie_limit_bumpers"),
+    ("left_rocker", "chassis"),
+    ("right_rocker", "chassis"),
+    ("left_bogie", "left_rocker"),
+    ("right_bogie", "right_rocker"),
 })
+
+
+def _limit_stop_pair(side, member):
+    """Moving member and the parent part that carries its printed stops."""
+    parent = "chassis" if member == "rocker" else f"{side}_rocker"
+    return canonical_pair(f"{side}_{member}", parent)
 MOVING_AXLE_PARTS = tuple(
     instance for _, instance in PART_INSTANCES
     if instance.endswith(("_shaft", "_spacer", "_hardware",
@@ -251,6 +260,14 @@ def test_clearance_policy_covers_every_wheel_against_links_and_chassis():
     assert all(clearance == 5.0 for clearance in requirements.values())
 
 
+def test_limit_stops_are_printed_into_parent_parts():
+    assert LIMIT_CONTACT_PAIRS == {
+        _limit_stop_pair(side, member)
+        for side in ("left", "right") for member in ("rocker", "bogie")
+    }
+    assert not any("bumper" in instance for _, instance in PART_INSTANCES)
+
+
 def test_rom_policy_covers_foreign_hardware_and_every_chassis_axle_pair():
     requirements = _foreign_wheel_hardware_requirements()
     chassis_pairs = _chassis_hardware_pairs()
@@ -364,7 +381,6 @@ def test_joint_range_sweep_uses_at_most_two_degree_steps(occ_rover):
             collision_pairs = set(requirements) | canonical_pairs({
                 (f"{side}_bogie", f"{side}_rocker"),
                 (f"{side}_bogie", "chassis"),
-                (f"{side}_bogie", f"{side}_bogie_limit_bumpers"),
             })
         requirements.update(foreign_hardware_requirements)
         collision_pairs.update(chassis_hardware_pairs)
@@ -394,18 +410,16 @@ def test_joint_range_sweep_uses_at_most_two_degree_steps(occ_rover):
                 for name in needed_parts
             }
             endpoint_contacts = set()
+            # Tangent stop contact is allowlisted only at the exact limit;
+            # test_printed_stops_meet_moving_tabs_at_joint_limits bounds it.
             if joint == "left_rocker_pivot" and abs(angle) == 18.0:
                 endpoint_contacts.update({
-                    canonical_pair("left_rocker",
-                                   "left_rocker_limit_bumpers"),
-                    canonical_pair("right_rocker",
-                                   "right_rocker_limit_bumpers"),
+                    _limit_stop_pair("left", "rocker"),
+                    _limit_stop_pair("right", "rocker"),
                 })
             elif joint.endswith("_bogie_pivot") and angle in (-35.0, 38.0):
                 side = "left" if joint.startswith("left") else "right"
-                endpoint_contacts.add(canonical_pair(
-                    f"{side}_bogie", f"{side}_bogie_limit_bumpers",
-                ))
+                endpoint_contacts.add(_limit_stop_pair(side, "bogie"))
             report = audit_positioned_breps(
                 positioned,
                 intended_contacts=_intended_contacts(
@@ -451,12 +465,11 @@ def test_combined_extremes_and_terrain_paths_clear_detailed_rover(occ_rover):
             for member, endpoints in (("rocker", (-18, 18)), ("bogie", (-35, 38))):
                 angle = math.degrees(result.joint_values[f"{side}_{member}_pivot"])
                 if any(abs(angle - endpoint) < 1e-7 for endpoint in endpoints):
-                    endpoint_contacts.add(canonical_pair(
-                        f"{side}_{member}", f"{side}_{member}_limit_bumpers",
-                    ))
+                    endpoint_contacts.add(_limit_stop_pair(side, member))
         allowed = _intended_contacts(occ_rover.parts, limit_contacts=endpoint_contacts)
         # An allowlisted pair with no distance requirement cannot fail this
-        # audit. Gear meshes and bumper preload have dedicated exact tests.
+        # audit. Gear meshes and printed-stop contact at the joint limits
+        # have dedicated exact tests.
         candidates = {p for p in candidates if p not in allowed or p in requirements}
         fresh = set()
         for pair in candidates:

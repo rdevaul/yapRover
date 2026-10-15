@@ -18,10 +18,19 @@ DSL_SOURCE = REPOSITORY_ROOT / "designs" / "yaprover_suspension_detailed.dsl"
 
 
 def _default_version() -> str:
+    # Prefer the checked-out pyproject so a stale editable-install metadata
+    # cache cannot label a new design with an old version.
+    try:
+        import tomllib
+
+        with (REPOSITORY_ROOT / "pyproject.toml").open("rb") as stream:
+            return tomllib.load(stream)["project"]["version"]
+    except (ImportError, OSError, KeyError, ValueError):
+        pass
     try:
         return package_version("yapRover")
     except PackageNotFoundError:
-        return "0.1.0"
+        return "0.2.0"
 
 
 def build_parser() -> argparse.ArgumentParser:

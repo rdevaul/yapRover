@@ -10,6 +10,10 @@ gears turn on a fixed cross-pin.
 - Four 24-tooth, module 1.5 spherical-involute straight bevel gears
 - 90-degree shaft angle and 20-degree pressure angle
 - 8 mm face width
+- Side gears: Ø8.2 keyed bore and a Ø18 x 9 mm hub on the back face, keyed
+  to the rocker shaft with a 14.5 mm DIN 6885 A 3 x 3 key (14.7 mm of key
+  engagement; v0.1 had a 2 mm key with 5.7 mm engagement). Print toe down,
+  hub up.
 - 0.25 mm nominal tooth backlash
 - 8.4 mm plain planet bores on a 7.9 mm steel cross-pin
 - Integral Ø16 mm planet thrust hubs
@@ -40,9 +44,14 @@ tower. The planets therefore remain independently rotatable and cannot be
 axially clamped by the retained pin.
 
 The printed cradle is a separate assembly component rather than fused into
-the chassis. Four M4 x 20 screw/nyloc stacks locate it on the chassis floor,
-allowing the complete gear, bearing, and cross-pin cartridge to be removed
-through the open top without disturbing either suspension side.
+the chassis. In v0.2 it is a 120 x 96 x 8 mm base frame (with a 52 x 56 mm gear
+window) tied to the bearing plates and pin towers by 45-degree gussets; the
+bearing plates and towers start on the same bed plane and use teardrop holes,
+so the cradle prints upright without supports. Eight M4 x 25 screws pass the
+base frame and the 10 mm deck, with nylocs under the deck (v0.1: four M4 x 20
+on the tub floor). The frame bears on the deck all round the 60 x 44 mm deck
+opening, and the complete gear, bearing, and cross-pin cartridge lifts off the
+open deck without disturbing either suspension side.
 
 ## Prototype assembly order
 
@@ -54,7 +63,7 @@ through the open top without disturbing either suspension side.
 4. Pass the shoulder pin through both towers, washers, and planet bores.
 5. Tighten the pin locknut against the tower only; confirm both planets turn
    independently by hand before installing the cartridge.
-6. Fasten the cradle to the chassis floor with the four M4 fastener stacks,
+6. Fasten the cradle to the deck with the eight M4 x 25 screws and nylocs,
    then verify the rocker differential moves through its full ±18° range.
 
 ## Acceptance contract

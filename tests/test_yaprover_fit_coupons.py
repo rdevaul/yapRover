@@ -17,9 +17,8 @@ TOOL = ROOT / "tools" / "build_fit_coupons.py"
 COMMANDS = (
     "BEARING_608_FIT_COUPON",
     "AXLE_8MM_FIT_COUPON",
-    "KEY_2MM_FIT_COUPON",
-    "TPU_BUMPER_SOCKET_FIT_COUPON",
-    "TPU_BUMPER_TEST_STEMS",
+    "KEY_3MM_FIT_COUPON",
+    "QUARTER_20_THREAD_FIT_COUPON",
 )
 
 
@@ -46,11 +45,25 @@ def test_coupon_is_analytic_and_fits_a_220mm_bed(source, command):
 
 def test_coupon_source_contains_production_nominals_and_bracketing_sizes(source):
     for value in (
-        "22.15", "8.30", "2.20", "5.30",
-        "21.95", "22.35", "8.00", "8.60", "1.90", "2.30",
-        "5.00", "5.60",
+        "22.15", "8.30", "3.10",
+        "21.95", "22.35", "8.00", "8.60", "3.00", "3.40",
+        "6.60",
     ):
         assert value in source
+
+
+def test_quarter_20_coupon_holes_are_readable_by_thread_plate_tool():
+    spec = importlib.util.spec_from_file_location(
+        "thread_plate", ROOT / "tools" / "thread_plate.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    assert module.parse_holes(str(SOURCE), "QUARTER_20_COUPON_HOLES") == [
+        (-25.0, 0.0), (0.0, 0.0), (25.0, 0.0),
+    ]
+    deck = ROOT / "designs" / "yaprover_suspension_detailed.dsl"
+    assert len(module.parse_holes(str(deck))) == 42
 
 
 @pytest.mark.expensive_geometry
@@ -60,6 +73,6 @@ def test_coupon_builder_writes_strict_stl_and_step(tmp_path):
     assert spec.loader is not None
     spec.loader.exec_module(module)
     files = module.build(tmp_path)
-    assert len(files) == 10
+    assert len(files) == 2 * len(module.COUPONS)
     assert all(path.stat().st_size > 0 for path in files)
     assert {path.suffix for path in files} == {".stl", ".step"}

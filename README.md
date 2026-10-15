@@ -37,16 +37,37 @@ The release assembly is `designs/yaprover_suspension_detailed.dsl`; the
 smaller suspension, link, and interface files are earlier studies used by
 their own tests. Apply production fit changes to the detailed source.
 
-The release chassis is now one connected 205 x 195 x 110 mm print. A 5 mm
-brim requires a 215 x 205 mm usable bed area. Wheel retention includes metal
-inner-race spacers, and the cut list includes shaft keyway/thread operations;
-physical fit and loaded operation still require prototype inspection.
+## Design overview (v0.2)
 
-See the [annotated geometry update](renders/yapRover_geometry_updates.png)
-for the one-piece chassis, wheel-hub cutaway, and machined rocker shaft.
-To regenerate it, build the current package and run
-`python tools/render_geometry_updates.py` in an environment with VTK installed
-and an available graphics context.
+- **Chassis:** a 300 x 195 x 10 mm optical-breadboard deck with 42 1/4-20
+  holes on a 25 mm grid for walls, batteries and payload, and two integral
+  rocker towers carrying the paired 608 pivot bearings. The 1/4-20 holes are
+  modelled as tap drills; `tools/thread_plate.py` cuts printable threads into
+  the exported deck STEP.
+- **Suspension:** one-piece rockers and bogies with chamfered (print-flat)
+  arms, keyed to the rocker shafts with DIN 6885 3 x 3 keys. Range-of-motion
+  stops are rigid PET-G pads printed into the chassis towers (rocker,
+  +/-18 degrees) and onto the rockers (bogie, -35/+38 degrees); there are no
+  separate bumper parts.
+- **Differential:** a removable four-gear miter cartridge on a gusseted base
+  frame on the deck, bolted through it with eight M4 x 25 screws and nylocs.
+- **Wheels:** six Ø135 x 54 mm Mars-style wheels with chevron grousers and
+  curved spokes, each on a 608 pair with a metal inner-race spacer and an
+  M8 low-head axle bolt.
+- **Mock RTG:** a Curiosity-style MMRTG with heat-exchanger shells, bolted to
+  the rear of the deck with four 1/4-20 screws.
+
+Every printed part fits the Bambu H2D single-nozzle volume
+(325 x 320 x 325 mm), which also fits an H2S; the one-piece
+rocker uses the bed diagonal. Wheel retention includes metal inner-race
+spacers, and the cut list includes shaft keyway/thread operations; physical
+fit and loaded operation still require prototype inspection. See the
+[v0.2 change notes](docs/changes-v0.2.md) for what changed relative to v0.1.
+
+The [annotated geometry update](renders/yapRover_geometry_updates.png) and
+`tools/render_geometry_updates.py` document the earlier v0.1 changes
+(one-piece tub chassis, wheel-hub cutaway, machined rocker shaft); they have
+not been regenerated for v0.2.
 
 ## Development environment
 
@@ -85,16 +106,18 @@ repository root:
 python tools/build_ycpkg.py
 ```
 
-The output is the directory `build/yaprover-0.1.0.ycpkg/`. A `.ycpkg` is a
+The output is the directory `build/yaprover-0.2.0.ycpkg/` (the version
+defaults to the one in `pyproject.toml`). A `.ycpkg` is a
 directory package, not a single STEP file. It contains the `ycpkg-spec-v0.2`
 manifest, solved instances and mate/coupling graph, generated BOM, original DSL
 source, and `yapcad-geometry-json-v0.2` geometry with embedded analytic BREP.
-Expect the current package to occupy roughly 190 MB.
+The package embeds analytic BREP for every part and is large (the v0.1
+package occupied roughly 190 MB).
 
 Select another version or preview pose, or replace an existing build, with:
 
 ```bash
-python tools/build_ycpkg.py --version 0.1.1 \
+python tools/build_ycpkg.py --version 0.2.1 \
   --rocker-angle-deg 12 --force
 ```
 
@@ -115,14 +138,14 @@ python tools/build_purchase_bom.py
 ```
 
 The CSV files are written to `build/procurement/`. The reviewed input catalog
-is `bom/prototype-v0.1.json`; it adds prototype spares, supplier pack rounding,
-stock-cut lengths, and critical inspection notes to the engineering quantities
-in the package. See [the BOM guide](bom/README.md) before ordering. In
+is `bom/prototype-v0.2.json` (`--v0.1` selects the previous revision); it
+adds prototype spares, supplier pack rounding, stock-cut lengths, and critical
+inspection notes to the engineering quantities in the package. See [the BOM guide](bom/README.md) before ordering. In
 particular, the M8 wheel axles remain manufacturer-neutral specifications and
 must be checked against the chosen supplier drawing.
 
 Before printing production parts, generate and evaluate the 608 pocket, 8 mm
-axle, 2 mm key, and TPU bumper-socket coupons:
+axle, 3 mm key, and 1/4-20 printed-thread coupons:
 
 ```bash
 python tools/build_fit_coupons.py
@@ -141,13 +164,13 @@ The current [differential cartridge design](docs/differential.md) uses four
 spherical-involute miter gears. Its two planet gears are separate parts with
 independent running joints on a retained shoulder pin. Integral thrust hubs
 and low-friction washers control axial float without clamping the planets, and
-the four-fastener cradle is removable from the chassis. Exact BREP tests verify
+the eight-fastener cradle is removable from the deck. Exact BREP tests verify
 pin and thrust clearances plus all four meshes through a complete tooth pitch.
 
 The [suspension geometry and ROM notes](docs/suspension.md) document the
-single-band split rocker, adjacent bogie layer, recessed axle retention, and
-replaceable TPU hard stops, plus the broad-phase and exact-BREP range-of-motion
-acceptance test.
+breadboard deck, mock RTG, one-piece rocker, adjacent bogie layer, wheel
+bearing stack, recessed axle retention, and printed-in hard stops, plus the
+broad-phase and exact-BREP range-of-motion acceptance test.
 
 An optional [powered-wheel candidate study](docs/drive_candidates.md) defines
 a motor envelope, split-clamp mount, coupler, rotating axle, and suspension-side

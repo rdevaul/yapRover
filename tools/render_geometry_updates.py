@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Render the corrected package geometry with cutaway detail views (VTK)."""
+"""Render the v0.1 geometry-update image with cutaway detail views (VTK).
+
+Historical: this script reproduces renders/yapRover_geometry_updates.png for
+the v0.1 package (one-piece tub chassis, 21.4 mm inner-race spacer, 2 mm
+keyways).  Its labels, crop planes and keyway highlighting are specific to
+that geometry and are intentionally not updated for v0.2 (breadboard deck,
+54 mm wheels with a 7.7 mm spacer, 3 x 3 keys); build the 0.1.0 package from
+the v0.1 tag to rerun it.
+"""
 from pathlib import Path
 import numpy as np
 import vtk

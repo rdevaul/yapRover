@@ -12,8 +12,11 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PACKAGE = ROOT / "build" / "yaprover-0.1.0.ycpkg"
-DEFAULT_CATALOG = ROOT / "bom" / "prototype-v0.1.json"
+DEFAULT_PACKAGE = ROOT / "build" / "yaprover-0.2.0.ycpkg"
+DEFAULT_CATALOG = ROOT / "bom" / "prototype-v0.2.json"
+# Revision A catalog and package for the v0.1 design (selected with --v0.1).
+V01_PACKAGE = ROOT / "build" / "yaprover-0.1.0.ycpkg"
+V01_CATALOG = ROOT / "bom" / "prototype-v0.1.json"
 DEFAULT_OUTPUT = ROOT / "build" / "procurement"
 
 
@@ -141,14 +144,24 @@ def generate(package: Path, catalog_path: Path, output: Path) -> tuple[Path, Pat
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--package", type=Path, default=DEFAULT_PACKAGE)
-    parser.add_argument("--catalog", type=Path, default=DEFAULT_CATALOG)
+    parser.add_argument("--package", type=Path, default=None,
+                        help=f"built package (default: {DEFAULT_PACKAGE.name})")
+    parser.add_argument("--catalog", type=Path, default=None,
+                        help=f"procurement catalog (default: {DEFAULT_CATALOG.name})")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--v0.1", dest="v01", action="store_true",
+        help="use the revision A catalog and 0.1.0 package for the v0.1 design",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.package is None:
+        args.package = V01_PACKAGE if args.v01 else DEFAULT_PACKAGE
+    if args.catalog is None:
+        args.catalog = V01_CATALOG if args.v01 else DEFAULT_CATALOG
     try:
         purchase, cuts = generate(args.package, args.catalog, args.output)
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:

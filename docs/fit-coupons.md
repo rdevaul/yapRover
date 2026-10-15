@@ -27,12 +27,35 @@ the lower left:
 |---|---|---|
 | 608 bearing pocket | 21.95, 22.05, 22.15, 22.25, 22.35 | 22.15 wheel/chassis / 22.30 bogie |
 | 8 mm axle hole | 8.00, 8.15, 8.30, 8.45, 8.60 | 8.30 |
-| 2 mm key slot | 1.90, 2.00, 2.10, 2.20, 2.30 | 2.20 |
-| TPU bumper socket | 5.00, 5.15, 5.30, 5.45, 5.60 | 5.30 |
+| 3 mm key slot | 3.00, 3.10, 3.20, 3.30, 3.40 | 3.10 (rocker hub and side-gear hub) |
+| 1/4-20 printed thread | three threaded holes on the 25 mm deck grid, then one 6.60 clearance hole | Ø5.20 tap drill + printed thread / 6.60 clearance |
 
-The TPU file contains five nominal 5.10 mm stems. Use a fresh stem for a final
-retention check if repeated insertion has polished or stretched an earlier
-sample.
+The key coupon is sized for DIN 6885 A 3 x 3 key stock (it replaces the v0.1
+2 mm coupon). The rover's limit stops are now rigid PET-G pads printed into the
+chassis towers and the rocker, so the v0.1 TPU bumper-socket coupon and test
+stems are gone.
+
+### 1/4-20 printed threads
+
+The optical-breadboard deck and the thread coupon model their 1/4-20 holes as
+plain Ø5.20 tap-drill bores so the release geometry stays analytic. Threads are
+cut into the exported STEP afterwards by `tools/thread_plate.py`, which writes a
+print-ready threaded STEP and STL. For the coupon:
+
+```bash
+python tools/build_fit_coupons.py --force
+python tools/thread_plate.py build/fit-coupons/quarter-20-thread-fit.step \
+    build/fit-coupons/quarter-20-thread-fit-threaded \
+    --dsl designs/yaprover_fit_coupons.dsl --command QUARTER_20_COUPON_HOLES
+```
+
+Print `quarter-20-thread-fit-threaded.stl` flat with the deck's slicer profile.
+The default thread form adds 0.18 mm radial clearance on the 6.35 mm major
+diameter (`CLEAR` in the tool). If a 1/4-20 screw binds or strips, change
+`CLEAR` and rethread rather than editing the DSL hole. The deck itself is
+threaded the same way from an exported `CHASSIS_FINISHED` STEP (the default
+`--dsl`/`--command` read its `BREADBOARD_HOLES`). The plain 6.60 mm hole checks
+the clearance used in the RTG base plate.
 
 ## Acceptance
 
@@ -44,8 +67,9 @@ sample.
 - The key must enter with firm thumb pressure and withdraw without damaging
   either the key or coupon. Select a looser slot for maintenance access rather
   than forcing an interference fit.
-- A TPU stem must seat fully with firm thumb pressure and resist a 20 N axial
-  hand pull. It must remain removable with pliers so the bumper is sacrificial.
+- A 1/4-20 x 1/2 in screw must thread fully by hand (or a light driver)
+  without cross-threading and hold a firm hand torque without stripping the
+  printed flanks. The 1/4-20 screw must pass the 6.60 mm hole freely.
 
 Record the selected dimensions, printer, material lot, and slicer profile.
 Update the DSL production dimensions only after repeating the winning feature
