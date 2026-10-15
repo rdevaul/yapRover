@@ -39,10 +39,6 @@ PART_INSTANCES = (
     ("RIGHT_ROCKER", "right_rocker"),
     ("LEFT_BOGIE", "left_bogie"),
     ("RIGHT_BOGIE", "right_bogie"),
-    ("LEFT_ROCKER_LIMIT_BUMPERS", "left_rocker_limit_bumpers"),
-    ("RIGHT_ROCKER_LIMIT_BUMPERS", "right_rocker_limit_bumpers"),
-    ("LEFT_BOGIE_LIMIT_BUMPERS", "left_bogie_limit_bumpers"),
-    ("RIGHT_BOGIE_LIMIT_BUMPERS", "right_bogie_limit_bumpers"),
     ("LEFT_WHEEL", "left_front_wheel"),
     ("LEFT_WHEEL", "left_middle_wheel"),
     ("LEFT_WHEEL", "left_rear_wheel"),
@@ -101,26 +97,23 @@ PART_INSTANCES = (
     ("DIFFERENTIAL_CRADLE_FASTENERS", "differential_cradle_fasteners"),
     ("DIFFERENTIAL_CARRIER_BEARINGS", "differential_carrier_bearings"),
     ("DIFFERENTIAL_CROSS_PIN", "differential_cross_pin"),
+    ("RTG_ON_PRISM", "rtg_prism"),
     ("DIFFERENTIAL_PLANET_THRUST_WASHERS",
      "differential_planet_thrust_washers"),
 )
 WHEELS = tuple(name for _, name in PART_INSTANCES if name.endswith("_wheel"))
 PRINTED_STRUCTURE = (
     "chassis", "left_rocker", "right_rocker", "left_bogie", "right_bogie",
+    "rtg_prism",
 )
 DIFFERENTIAL_MESHES = tuple(
     (f"{position}_differential_planet_gear", f"{side}_differential_side_gear")
     for position in ("front", "rear") for side in ("left", "right")
 )
+# Range-of-motion stops are printed into their parent parts (rocker stops in
+# the chassis tower webs, bogie stops on the rocker), so there are no separate
+# limit-bumper parts or mates.
 HARDWARE_MATES = (
-    ("left_rocker_limit_bumper_mount", "chassis",
-     "left_rocker_limit_bumpers", "left_rocker", "joint_axis"),
-    ("right_rocker_limit_bumper_mount", "chassis",
-     "right_rocker_limit_bumpers", "right_rocker", "joint_axis"),
-    ("left_bogie_limit_bumper_mount", "left_rocker",
-     "left_bogie_limit_bumpers", "bogie_pivot", "joint_axis"),
-    ("right_bogie_limit_bumper_mount", "right_rocker",
-     "right_bogie_limit_bumpers", "bogie_pivot", "joint_axis"),
     ("left_front_shaft_mount", "left_rocker", "left_front_shaft",
      "front_axle", "axle"),
     ("left_middle_shaft_mount", "left_bogie", "left_middle_shaft",
@@ -213,6 +206,7 @@ HARDWARE_MATES = (
      "chassis_pivot", "axis"),
     ("right_side_gear_mount", "right_rocker", "right_differential_side_gear",
      "chassis_pivot", "axis"),
+    ("rtg_prism_mount", "chassis", "rtg_prism", "differential_mount", "mount"),
     ("differential_cradle_mount", "chassis", "differential_cradle",
      "differential_mount", "mount"),
     ("differential_fastener_mount", "differential_cradle",
@@ -312,20 +306,59 @@ def _extent(solid):
     return np.asarray(bounds[1][:3]) - np.asarray(bounds[0][:3])
 
 
-def test_every_printed_component_fits_220_mm_bed(source):
+H2S_BED = (325.0, 320.0, 325.0)  # Bambu H2D single-nozzle volume (also fits H2S)
+
+
+def _print_footprint_fits(solid, up_axis, bed=H2S_BED):
+    """Best rotation about the print-vertical axis: (fits, (w, d, h))."""
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+    from OCC.Core.TopAbs import TopAbs_VERTEX
+    from OCC.Core.TopExp import TopExp_Explorer
+    from yapcad.brep import brep_from_solid
+
+    shape = brep_from_solid(solid).shape
+    BRepMesh_IncrementalMesh(shape, 0.5)
+    points = []
+    explorer = TopExp_Explorer(shape, TopAbs_VERTEX)
+    while explorer.More():
+        p = BRep_Tool.Pnt(explorer.Current())
+        points.append((p.X(), p.Y(), p.Z()))
+        explorer.Next()
+    pts = np.asarray(points)
+    up = {"x": 0, "y": 1, "z": 2}[up_axis]
+    plane = [axis for axis in range(3) if axis != up]
+    flat = pts[:, plane]
+    height = pts[:, up].max() - pts[:, up].min()
+    best = None
+    for angle in np.radians(np.arange(0.0, 180.0, 1.0)):
+        c, s_ = math.cos(angle), math.sin(angle)
+        rotated = flat @ np.array([[c, -s_], [s_, c]])
+        w, d = rotated.max(axis=0) - rotated.min(axis=0)
+        w, d = max(w, d), min(w, d)
+        if best is None or (w, d) < best[:2]:
+            best = (w, d, height)
+        if w <= max(bed[:2]) and d <= min(bed[:2]) and height <= bed[2]:
+            return True, (w, d, height)
+    return False, best
+
+
+@pytest.mark.requires_occ
+def test_every_printed_component_fits_h2s_bed(source):
+    # (command, params, print-vertical axis).  Suspension links and wheels
+    # print with their joint axis (Y) vertical; deck, cradle and RTG as
+    # modelled.  The one-piece rocker needs the diagonal of the bed.
     components = {
-        "rocker front": _compile(source, "ROCKER_FRONT_COMPONENT"),
-        "rocker rear": _compile(source, "ROCKER_REAR_COMPONENT"),
-        "bogie": _compile(source, "BOGIE_FINISHED", {"side": 1}),
-        "wheel": _compile(source, "WHEEL_HUB"),
-        "chassis": _compile(source, "CHASSIS_FINISHED"),
-        "chassis interface": _compile(
-            source, "CHASSIS_SIDE_INTERFACE", {"side": 1},
-        ),
-        "differential cradle": _compile(source, "DIFFERENTIAL_CRADLE"),
+        "rocker": ("ROCKER_ONE_PIECE", None, "y"),
+        "bogie": ("BOGIE_FINISHED", {"side": 1}, "y"),
+        "wheel": ("WHEEL_HUB", None, "y"),
+        "chassis deck": ("CHASSIS_FINISHED", None, "z"),
+        "differential cradle": ("DIFFERENTIAL_CRADLE", None, "z"),
+        "rtg": ("RTG_ON_PRISM", None, "z"),
     }
-    for name, solid in components.items():
-        assert np.all(_extent(solid) <= [220.0, 220.0, 250.0]), (name, _extent(solid))
+    for name, (command, params, up) in components.items():
+        fits, size = _print_footprint_fits(_compile(source, command, params), up)
+        assert fits, (name, size)
 
 
 def test_finished_chassis_is_one_connected_print(detailed_solids):
@@ -340,7 +373,9 @@ def test_finished_chassis_is_one_connected_print(detailed_solids):
         count += 1
         explorer.Next()
     assert count == 1
-    np.testing.assert_allclose(_extent(chassis), [205, 195, 110], atol=0.01)
+    # Breadboard deck (300 x 195 incl. tower lands) with towers to z=62 and
+    # printed-in rocker stops reaching y=+/-114.5.
+    np.testing.assert_allclose(_extent(chassis), [300, 229, 91], atol=0.01)
 
 
 def test_wheel_retention_has_continuous_metal_inner_race_stack(detailed_solids):
@@ -363,13 +398,18 @@ def test_wheel_retention_has_continuous_metal_inner_race_stack(detailed_solids):
     assert measurement.clearance == pytest.approx(0.25, abs=0.01)
     # Bearing rings seat against the wheel shoulders rather than floating
     # axially on a too-long internal spacer.
+    # The short hub carries the pair at y=-14.2 and +0.5; the shoulder
+    # between them spans y=-10.7..-3.0 (sampled at r=10, outside the bore
+    # lead-in cone and inside the R11.075 seats).
     from test_yaprover_wheel_chassis_interfaces import _inside
-    for side in (-1, 1):
-        assert _inside(wheel, (9, side * 10.69, 0))
-        assert not _inside(wheel, (9, side * 10.71, 0))
+    assert _inside(wheel, (10, -10.69, 0))
+    assert not _inside(wheel, (10, -10.71, 0))
+    assert _inside(wheel, (10, -3.01, 0))
+    assert not _inside(wheel, (10, -2.99, 0))
     # Real 608 bore: a point just below radius 4 must be empty.
-    assert not _inside(bearings, (3.99, 14.2, 0))
-    assert _inside(bearings, (4.01, 14.2, 0))
+    for y in (-14.2, 0.5):
+        assert not _inside(bearings, (3.99, y, 0))
+        assert _inside(bearings, (4.01, y, 0))
 
 
 def test_rocker_keys_fit_machined_shaft_slots(detailed_solids):
@@ -382,13 +422,20 @@ def test_rocker_keys_fit_machined_shaft_slots(detailed_solids):
 
 
 @pytest.mark.expensive_geometry
-def test_split_rocker_halves_share_one_band_without_intersection(source):
-    front = _compile(source, "ROCKER_FRONT_COMPONENT")
-    rear = _compile(source, "ROCKER_REAR_COMPONENT")
-    measurement = measure_brep_pair("rocker_front", front, "rocker_rear", rear)
+def test_rocker_is_one_connected_print(source):
+    # The split rocker passed each arm's moment between its halves only
+    # through the shaft key; one piece balances the arm moments internally.
+    from OCC.Core.TopAbs import TopAbs_SOLID
+    from OCC.Core.TopExp import TopExp_Explorer
+    from yapcad.brep import brep_from_solid
 
-    assert measurement.intersection_volume <= 1e-7
-    assert measurement.clearance <= 0.05
+    rocker = _compile(source, "ROCKER_ONE_PIECE")
+    explorer = TopExp_Explorer(brep_from_solid(rocker).shape, TopAbs_SOLID)
+    count = 0
+    while explorer.More():
+        count += 1
+        explorer.Next()
+    assert count == 1
 
 
 def test_detailed_geometry_retains_proven_datum_graph(detailed_solids):
@@ -396,8 +443,8 @@ def test_detailed_geometry_retains_proven_datum_graph(detailed_solids):
     result = assembly.solve("chassis", {"left_rocker_pivot": math.radians(12.0)})
 
     assert result.success, result.errors
-    assert len(assembly.parts) == 68
-    assert len(assembly.mates) == 67
+    assert len(assembly.parts) == 65
+    assert len(assembly.mates) == 64
     assert assembly._joint_values["right_rocker_pivot"] == pytest.approx(
         math.radians(-12.0)
     )
@@ -421,7 +468,7 @@ def test_metric_hardware_is_explicit_and_dimensionally_bounded(detailed_solids):
     assert len([name for name in assembly.parts if name.endswith("_hardware")]) == 10
     bearing_extent = _extent(detailed_solids["LEFT_WHEEL_BEARINGS"])
     np.testing.assert_allclose(bearing_extent[[0, 2]], [22.0, 21.839595], atol=0.02)
-    assert bearing_extent[1] == pytest.approx(35.4, abs=0.02)
+    assert bearing_extent[1] == pytest.approx(21.7, abs=0.02)
     for name, part in assembly.parts.items():
         if name.endswith(("_shaft", "_bearings")):
             datum = part.datums.get("axle") or part.datums["axis"]
@@ -437,9 +484,16 @@ def test_tightened_lateral_stack_restores_310_mm_track(detailed_solids):
     right_bounds = solidbbox(positioned["right_front_wheel"])
     left_center = (left_bounds[0][1] + left_bounds[1][1]) / 2.0
     right_center = (right_bounds[0][1] + right_bounds[1][1]) / 2.0
-    assert left_center == pytest.approx(155.0, abs=0.02)
-    assert right_center == pytest.approx(-155.0, abs=0.02)
-    assert left_center - right_center == pytest.approx(310.0, abs=0.02)
+    # The 54 mm wheel keeps its inboard face at the original position
+    # (axle plane +/-155 less 18 mm) and grows outboard, so the wheel
+    # centres sit at +/-164 while the axle datums keep the 310 mm track.
+    assert left_bounds[0][1] == pytest.approx(137.0, abs=0.02)
+    assert right_bounds[1][1] == pytest.approx(-137.0, abs=0.02)
+    assert left_center == pytest.approx(164.0, abs=0.02)
+    assert right_center == pytest.approx(-164.0, abs=0.02)
+    track = (assembly.transforms["left_front_wheel"][1][3]
+             - assembly.transforms["right_front_wheel"][1][3])
+    assert track == pytest.approx(310.0, abs=0.02)
 
     shaft_extent = _extent(detailed_solids["LEFT_WHEEL_AXLE_SHAFT"])
     spacer_extent = _extent(detailed_solids["LEFT_WHEEL_AXLE_SPACER"])
@@ -449,47 +503,53 @@ def test_tightened_lateral_stack_restores_310_mm_track(detailed_solids):
     bogie_spacer_extent = _extent(
         detailed_solids["LEFT_BOGIE_WHEEL_AXLE_SPACER"]
     )
-    assert shaft_extent[1] == pytest.approx(84.0, abs=0.02)
+    # 70 / 55 mm shank plus the 5 mm DIN 7984 M8 low head.
+    assert shaft_extent[1] == pytest.approx(75.0, abs=0.02)
     assert spacer_extent[1] == pytest.approx(22.8, abs=0.02)
-    assert bogie_shaft_extent[1] == pytest.approx(69.0, abs=0.02)
+    assert bogie_shaft_extent[1] == pytest.approx(60.0, abs=0.02)
     assert bogie_spacer_extent[1] == pytest.approx(5.8, abs=0.02)
 
     shaft_bounds = solidbbox(detailed_solids["LEFT_WHEEL_AXLE_SHAFT"])
     hardware_bounds = solidbbox(detailed_solids["LEFT_WHEEL_AXLE_HARDWARE"])
-    assert shaft_bounds[0][1] == pytest.approx(-56.0, abs=0.02)
-    assert hardware_bounds[0][1] == pytest.approx(17.7, abs=0.02)
+    assert shaft_bounds[0][1] == pytest.approx(-55.9, abs=0.02)
+    assert hardware_bounds[0][1] == pytest.approx(4.0, abs=0.02)
 
 
 @pytest.mark.expensive_geometry
 @pytest.mark.parametrize(
-    ("joint", "angle_deg", "moving", "bumpers"),
+    ("joint", "angle_deg", "moving", "stops"),
     (
-        ("left_rocker_pivot", -18.0, "left_rocker",
-         "left_rocker_limit_bumpers"),
-        ("left_rocker_pivot", 18.0, "left_rocker",
-         "left_rocker_limit_bumpers"),
-        ("left_bogie_pivot", -35.0, "left_bogie",
-         "left_bogie_limit_bumpers"),
-        ("left_bogie_pivot", 38.0, "left_bogie",
-         "left_bogie_limit_bumpers"),
+        # Rocker stops are printed into the chassis tower webs; bogie stops
+        # are printed onto the rocker.
+        ("left_rocker_pivot", -18.0, "left_rocker", "chassis"),
+        ("left_rocker_pivot", 18.0, "left_rocker", "chassis"),
+        ("left_bogie_pivot", -35.0, "left_bogie", "left_rocker"),
+        ("left_bogie_pivot", 38.0, "left_bogie", "left_rocker"),
     ),
 )
-def test_replaceable_bumpers_meet_moving_tabs_at_joint_limits(
-    detailed_solids, joint, angle_deg, moving, bumpers,
+def test_printed_stops_meet_moving_tabs_at_joint_limits(
+    detailed_solids, joint, angle_deg, moving, stops,
 ):
     assembly = make_detailed_assembly(detailed_solids)
     result = assembly.solve("chassis", {joint: math.radians(angle_deg)})
     assert result.success, result.errors
     positioned = assembly.positioned_parts()
     measurement = measure_brep_pair(
-        moving, positioned[moving], bumpers, positioned[bumpers]
+        moving, positioned[moving], stops, positioned[stops]
     )
-    # The nominal endpoint intentionally preloads the flexible pad by a tiny
-    # amount. It is well below one cubic millimetre for three of the four
-    # limits and below two cubic millimetres at the asymmetric -35 degree
-    # bogie stop; two degrees inside the range remains fully separated.
-    assert 0.0 < measurement.intersection_volume <= 2.0
-    assert measurement.clearance == pytest.approx(0.0, abs=1e-8)
+    # Rigid PET-G stops are placed tangent to the R5 tab nose at the limit.
+    assert measurement.intersection_volume <= 0.5
+    assert measurement.clearance <= 0.02
+
+    inside = angle_deg - math.copysign(2.0, angle_deg)
+    result = assembly.solve("chassis", {joint: math.radians(inside)})
+    assert result.success, result.errors
+    positioned = assembly.positioned_parts()
+    measurement = measure_brep_pair(
+        moving, positioned[moving], stops, positioned[stops]
+    )
+    assert measurement.intersection_volume <= 1e-7
+    assert measurement.clearance > 0.05
 
 
 def test_physical_differential_tracks_the_affine_joint_contract(detailed_solids):
@@ -519,8 +579,9 @@ def test_physical_differential_tracks_the_affine_joint_contract(detailed_solids)
     np.testing.assert_allclose(
         chassis.datums["planet_axis"].direction[:3], [1, 0, 0]
     )
+    # Gear body plus the Ø18 x 9 mm keyed hub on its back face.
     side_extent = _extent(detailed_solids["LEFT_DIFFERENTIAL_SIDE_GEAR"])
-    assert np.all(side_extent <= [41.0, 9.0, 41.0])
+    assert np.all(side_extent <= [41.0, 15.0, 41.0])
 
 
 def test_planet_gears_have_independent_running_joints(detailed_solids):
@@ -708,14 +769,14 @@ def test_full_dsl_build_creates_valid_v02_product_package(tmp_path, source):
         {"rocker_angle": 0.0},
         tmp_path / "yaprover.ycpkg",
         name="yaprover",
-        version="0.1.0",
+        version="0.2.0",
     )
 
     assert result.success, result.error_message
     manifest = result.manifest
     assert manifest.data["schema"] == "ycpkg-spec-v0.2"
-    assert len(manifest.data["instances"]) == 68
-    assert len(manifest.data["components"]) <= 68
+    assert len(manifest.data["instances"]) == 65
+    assert len(manifest.data["components"]) <= 65
     components = {
         component["id"]: component for component in manifest.data["components"]
     }
@@ -723,7 +784,9 @@ def test_full_dsl_build_creates_valid_v02_product_package(tmp_path, source):
         components[instance["component"]]["disposition"]
         for instance in manifest.data["instances"]
     )
-    assert dispositions == {"make": 20, "buy": 30, "raw_stock": 18}
+    # make: chassis deck, 2 rockers, 2 bogies, 6 wheels, 4 gears, cradle,
+    # RTG prism (the four TPU limit-bumper parts were removed in v0.2).
+    assert dispositions == {"make": 17, "buy": 30, "raw_stock": 18}
     assert manifest.data["geometry"]["primary"]["schema"] == (
         "yapcad-geometry-json-v0.2"
     )

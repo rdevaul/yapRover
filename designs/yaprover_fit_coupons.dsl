@@ -45,14 +45,16 @@ command AXLE_8MM_FIT_COUPON() -> solid:
     emit difference_all(plate, holes + [marker])
 
 
-@meta(material="PETG", component.id="coupon_key_2mm",
-      component.name="2 mm parallel-key slot fit coupon",
+@meta(material="PETG", component.id="coupon_key_3mm",
+      component.name="3 mm parallel-key slot fit coupon",
       component.disposition="make", manufacturing.process="FDM",
       manufacturing.instructions="Print flat using rover structural profile")
-command KEY_2MM_FIT_COUPON() -> solid:
+command KEY_3MM_FIT_COUPON() -> solid:
+    # Brackets the 3.10 mm keyway used in the rocker hub and side-gear hub for
+    # the DIN 6885 A 3 x 3 keys.
     let plate: solid = fillet(box(110.0, 30.0, 8.0), 2.0)
     let positions: list<float> = [-40.0, -20.0, 0.0, 20.0, 40.0]
-    let widths: list<float> = [1.90, 2.00, 2.10, 2.20, 2.30]
+    let widths: list<float> = [3.00, 3.10, 3.20, 3.30, 3.40]
     # Slots open through the +Y edge so the same physical key can be tried
     # without trapping it in the coupon.
     let slots: list<solid> = [
@@ -64,41 +66,35 @@ command KEY_2MM_FIT_COUPON() -> solid:
     emit difference_all(plate, slots + [marker])
 
 
-@meta(material="PETG", component.id="coupon_tpu_bumper_socket",
-      component.name="TPU bumper-stem socket fit coupon",
-      component.disposition="make", manufacturing.process="FDM",
-      manufacturing.instructions="Print flat using rover structural profile")
-command TPU_BUMPER_SOCKET_FIT_COUPON() -> solid:
-    let plate: solid = fillet(box(90.0, 26.0, 8.0), 2.0)
-    let positions: list<float> = [-32.0, -16.0, 0.0, 16.0, 32.0]
-    let diameters: list<float> = [5.00, 5.15, 5.30, 5.45, 5.60]
-    let holes: list<solid> = [
-        Z_HOLE(diameters[i], positions[i], 0.0, 9.0)
-        for i in range(0, 5)
-    ]
-    let marker: solid = ORIENTATION_MARKER(-42.0, -9.0, 9.0)
-    emit difference_all(plate, holes + [marker])
+command QUARTER_20_COUPON_HOLES() -> solid:
+    # Ø5.2 tap-drill bores on the deck's 25 mm grid, through the deck's 10 mm
+    # thickness.  tools/thread_plate.py reads these translate(tap, ...) lines
+    # (--command QUARTER_20_COUPON_HOLES) to cut printable 1/4-20 threads.
+    let tap: solid = translate(cylinder(2.6, 12.0), 0.0, 0.0, -6.0)
+    emit compound(translate(tap, -25.0, 0.0, 0.0),
+                  translate(tap, 0.0, 0.0, 0.0),
+                  translate(tap, 25.0, 0.0, 0.0))
 
 
-@meta(material="TPU 95A", component.id="coupon_tpu_bumper_stems",
-      component.name="Nominal 5.1 mm TPU bumper test stems",
+@meta(material="PETG", component.id="coupon_quarter_20_thread",
+      component.name="1/4-20 printed-thread fit coupon",
       component.disposition="make", manufacturing.process="FDM",
-      manufacturing.instructions="Print upright using bumper profile")
-command TPU_BUMPER_TEST_STEMS() -> solid:
-    emit compound(
-        translate(cylinder(2.55, 10.0), -24.0, 0.0, 0.0),
-        translate(cylinder(2.55, 10.0), -12.0, 0.0, 0.0),
-        cylinder(2.55, 10.0),
-        translate(cylinder(2.55, 10.0), 12.0, 0.0, 0.0),
-        translate(cylinder(2.55, 10.0), 24.0, 0.0, 0.0)
-    )
+      manufacturing.instructions="Thread with tools/thread_plate.py, then print flat using the deck profile")
+command QUARTER_20_THREAD_FIT_COUPON() -> solid:
+    # A 10 mm slice of the optical-breadboard deck: three 1/4-20 holes on the
+    # 25 mm grid plus one Ø6.60 clearance hole matching the RTG base plate.
+    # The modelled holes are plain Ø5.20 tap drills; printable threads are
+    # added to the exported STEP by tools/thread_plate.py.
+    let plate: solid = chamfer(box(110.0, 28.0, 10.0), 1.0)
+    let clearance: solid = Z_HOLE(6.60, 45.0, 0.0, 11.0)
+    let marker: solid = ORIENTATION_MARKER(-48.0, -10.0, 11.0)
+    emit difference(plate, QUARTER_20_COUPON_HOLES(), clearance, marker)
 
 
 command ALL_FIT_COUPONS_PREVIEW() -> solid:
     emit compound(
         translate(BEARING_608_FIT_COUPON(), 0.0, 55.0, 0.0),
         translate(AXLE_8MM_FIT_COUPON(), 0.0, 15.0, 0.0),
-        translate(KEY_2MM_FIT_COUPON(), 0.0, -25.0, 0.0),
-        translate(TPU_BUMPER_SOCKET_FIT_COUPON(), 0.0, -65.0, 0.0),
-        translate(TPU_BUMPER_TEST_STEMS(), 0.0, -88.0, 0.0)
+        translate(KEY_3MM_FIT_COUPON(), 0.0, -25.0, 0.0),
+        translate(QUARTER_20_THREAD_FIT_COUPON(), 0.0, -65.0, 0.0)
     )

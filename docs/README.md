@@ -5,7 +5,9 @@ rationale documentation for the first YapRover prototype.
 
 Current design and build notes:
 
+- [v0.2 change notes](changes-v0.2.md)
 - [Suspension geometry and validated range of motion](suspension.md)
+- [Prototype assembly order and printed fits](assembly.md)
 - [Differential cartridge](differential.md)
 - [Optional wheel-drive candidates](drive_candidates.md)
 - [Prototype fit coupons and acceptance procedure](fit-coupons.md)

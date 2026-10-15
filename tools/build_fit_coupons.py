@@ -19,9 +19,10 @@ DEFAULT_OUTPUT = ROOT / "build" / "fit-coupons"
 COUPONS = {
     "bearing-608-fit": "BEARING_608_FIT_COUPON",
     "axle-8mm-fit": "AXLE_8MM_FIT_COUPON",
-    "key-2mm-fit": "KEY_2MM_FIT_COUPON",
-    "tpu-bumper-socket-fit": "TPU_BUMPER_SOCKET_FIT_COUPON",
-    "tpu-bumper-test-stems": "TPU_BUMPER_TEST_STEMS",
+    "key-3mm-fit": "KEY_3MM_FIT_COUPON",
+    # Unthreaded Ø5.2 tap drills; thread the STEP with tools/thread_plate.py
+    # (--dsl designs/yaprover_fit_coupons.dsl --command QUARTER_20_COUPON_HOLES).
+    "quarter-20-thread-fit": "QUARTER_20_THREAD_FIT_COUPON",
 }
 
 
