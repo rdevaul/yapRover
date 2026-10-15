@@ -60,9 +60,9 @@ PART_INSTANCES = (
     ("WHEEL_INNER_RACE_SPACER", "left_front_inner_spacer"),
     ("WHEEL_INNER_RACE_SPACER", "left_middle_inner_spacer"),
     ("WHEEL_INNER_RACE_SPACER", "left_rear_inner_spacer"),
-    ("WHEEL_INNER_RACE_SPACER", "right_front_inner_spacer"),
-    ("WHEEL_INNER_RACE_SPACER", "right_middle_inner_spacer"),
-    ("WHEEL_INNER_RACE_SPACER", "right_rear_inner_spacer"),
+    ("RIGHT_WHEEL_INNER_RACE_SPACER", "right_front_inner_spacer"),
+    ("RIGHT_WHEEL_INNER_RACE_SPACER", "right_middle_inner_spacer"),
+    ("RIGHT_WHEEL_INNER_RACE_SPACER", "right_rear_inner_spacer"),
     ("LEFT_WHEEL_AXLE_HARDWARE", "left_front_axle_hardware"),
     ("LEFT_WHEEL_AXLE_HARDWARE", "left_middle_axle_hardware"),
     ("LEFT_WHEEL_AXLE_HARDWARE", "left_rear_axle_hardware"),
@@ -307,6 +307,16 @@ def _extent(solid):
 
 
 H2S_BED = (325.0, 320.0, 325.0)  # Bambu H2D single-nozzle volume (also fits H2S)
+
+# yapCAD writes yapcad-geometry-json v0.3 and reads v0.1 through v0.3. v0.3
+# differs from v0.2 only by admitting "sdf" as an authoritative representation,
+# so a package carrying analytic BREP is valid under either id; pinning one
+# exact string breaks the package test on a yapCAD bump that changes nothing
+# the rover depends on.
+SUPPORTED_GEOMETRY_SCHEMAS = frozenset({
+    "yapcad-geometry-json-v0.2",
+    "yapcad-geometry-json-v0.3",
+})
 
 
 def _print_footprint_fits(solid, up_axis, bed=H2S_BED):
@@ -787,11 +797,10 @@ def test_full_dsl_build_creates_valid_v02_product_package(tmp_path, source):
     # make: chassis deck, 2 rockers, 2 bogies, 6 wheels, 4 gears, cradle,
     # RTG prism (the four TPU limit-bumper parts were removed in v0.2).
     assert dispositions == {"make": 17, "buy": 30, "raw_stock": 18}
-    assert manifest.data["geometry"]["primary"]["schema"] == (
-        "yapcad-geometry-json-v0.2"
-    )
+    assert (manifest.data["geometry"]["primary"]["schema"]
+            in SUPPORTED_GEOMETRY_SCHEMAS)
     assert all(
-        component["geometry"]["schema"] == "yapcad-geometry-json-v0.2"
+        component["geometry"]["schema"] in SUPPORTED_GEOMETRY_SCHEMAS
         for component in manifest.data["components"]
     )
     ok, messages = validate_package(manifest.root, strict=True)
